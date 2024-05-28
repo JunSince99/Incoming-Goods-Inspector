@@ -127,7 +127,7 @@ class FirebaseDatabase {
     }
   }
 
-    Future<List<String>> getBarcodesByProductCode(String productCode) async {
+  Future<List<String>> getBarcodesByProductCode(String productCode) async {
     try {
       // barcode_productcode 문서에서 모든 데이터를 가져옵니다.
       DocumentSnapshot<Map<String, dynamic>> barcodeProductCodeDoc = await _firestore.collection('ProductsList').doc('barcode_productcode').get();

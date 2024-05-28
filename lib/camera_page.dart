@@ -86,7 +86,7 @@ class _CameraAppState extends State<CameraApp> {
           scrollToIndex(matchedProducts.indexOf(matchedproduct));
           flashItemColor(matchedProducts.indexOf(matchedproduct));
         }
-        if (otherBarcodes != null) {
+        if (otherBarcodes != []) {
           for (var otherbarcode in otherBarcodes) {
             if (otherbarcode == barcode.rawValue) {
               isChecked[matchedProducts.indexOf(matchedproduct)] = true;
