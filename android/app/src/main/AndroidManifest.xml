@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="barcode_checking"
+        android:label="입고물품 확인"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

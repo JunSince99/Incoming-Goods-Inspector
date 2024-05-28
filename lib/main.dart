@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:barcode_checking/product_codes.dart';
-import 'package:barcode_checking/product_list.dart';
-import 'package:barcode_checking/database_helper.dart';
+import 'package:barcode_checker/product_codes.dart';
+import 'package:barcode_checker/product_list.dart';
+import 'package:barcode_checker/database_helper.dart';
 import 'package:csv/csv.dart';
 import 'package:permission_handler/permission_handler.dart';
 

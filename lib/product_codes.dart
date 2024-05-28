@@ -3,7 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:barcode_checking/main.dart';
+import 'package:barcode_checker/main.dart';
 import 'database_helper.dart';
 import 'camera_page.dart';
 

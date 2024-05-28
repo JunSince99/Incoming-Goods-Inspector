@@ -3,7 +3,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter_native_image/flutter_native_image.dart';
 import 'dart:math';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
-import 'package:barcode_checking/main.dart';
+import 'package:barcode_checker/main.dart';
 import 'package:vibration/vibration.dart';
 import 'database_helper.dart';
 import 'package:flutter/services.dart';
