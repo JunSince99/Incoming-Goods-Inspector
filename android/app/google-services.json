@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "680685794316",
+    "project_id": "incoming-product-checker",
+    "storage_bucket": "incoming-product-checker.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:680685794316:android:ca1cece94e28119a18ea29",
+        "android_client_info": {
+          "package_name": "com.example.barcode_checking"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJCTeyZ1RvRrQtJHzLxU5uGZlY7ZLYYCc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
