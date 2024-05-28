@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_native_image/flutter_native_image.dart';
 import 'dart:math';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
@@ -419,14 +418,14 @@ class _ProductListDialogState extends State<ProductListDialog> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('해당 상품에 바코드를 추가하시겠습니까?'),
+          title: const Text('해당 상품에 바코드를 추가하시겠습니까?'),
           content: Text('선택한 상품: ${product['product_name']}'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: Text('취소'),
+              child: const Text('취소'),
             ),
             TextButton(
               onPressed: () {
@@ -434,7 +433,7 @@ class _ProductListDialogState extends State<ProductListDialog> {
                 Navigator.of(context).pop(); // Close the confirmation dialog
                 Navigator.of(context).pop(); // Close the ProductListDialog
               },
-              child: Text('확인'),
+              child: const Text('확인'),
             ),
           ],
         );
