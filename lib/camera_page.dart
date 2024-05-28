@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_native_image/flutter_native_image.dart';
 import 'dart:math';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
@@ -11,11 +12,6 @@ import 'package:flutter/services.dart';
 List<CameraDescription> cameras = [];
 List<String?> scannedBarcodes = [];
 
-Future<XFile> takeapicture(CameraController controller) async {
-  final XFile file = await controller.takePicture();
-  return file;
-}
-
 class CameraApp extends StatefulWidget {
   @override
   _CameraAppState createState() => _CameraAppState();
@@ -26,15 +22,14 @@ class _CameraAppState extends State<CameraApp> {
   final ScrollController scrollController = ScrollController();
   bool _isCameraInitialized = false;
   int? _selectedIndex;  // 선택된 인덱스를 저장할 변수
-  final List<GlobalKey> _itemKeys = []; // 각 아이템의 키를 저장할 리스트
 
   @override
   void initState() {
     super.initState();
     initializeCamera();
   }
-
-  Future<void> initializeCamera() async {
+  
+  Future<void> initializeCamera() async { //카메라 초기화
     try {
       cameras = await availableCameras();
       if (cameras.isNotEmpty) {
@@ -58,15 +53,16 @@ class _CameraAppState extends State<CameraApp> {
     super.dispose();
   }
 
-  void scrollToIndex(int index) {
-    final keyContext = _itemKeys[index].currentContext;
-    if (keyContext != null) {
-      Scrollable.ensureVisible(keyContext,
-          duration: const Duration(seconds: 1), curve: Curves.easeInOut);
-    }
+  void scrollToIndex(int index) { // 해당 인덱스로 스크롤
+    double position = index * 77;
+    scrollController.animateTo(
+      position, 
+      duration: const Duration(seconds: 1), 
+      curve: Curves.easeInOut
+    );
   }
 
-  void flashItemColor(int index) async {
+  void flashItemColor(int index) async { //깜빡이기
     for (int i = 0; i < 11; i++) {
       setState(() {
         isChecked[index] = !isChecked[index];
@@ -78,24 +74,24 @@ class _CameraAppState extends State<CameraApp> {
     });
   }
 
-  Future<void> processBarcodes(List<Barcode> barcodes) async {
+  Future<void> processBarcodes(List<Barcode> barcodes) async { //인식된 바코드 납품서와 비교
     for (Barcode barcode in barcodes) {
-      for (var prdtcode in matchedProducts) {
-        List<String>? otherBarcodes = await DatabaseHelper.instance.getOtherBarcodesForProduct(prdtcode.key);
+      for (var matchedproduct in matchedProducts) {
+        List<String>? otherBarcodes = await DatabaseHelper.instance.getOtherBarcodesForProduct(matchedproduct.key); //같은 상품의 다른 바코드들 불러오기 
 
-        if (prdtcode.key == barcode.rawValue) {
-          isChecked[matchedProducts.indexOf(prdtcode)] = true;
+        if (matchedproduct.key == barcode.rawValue) {
+          isChecked[matchedProducts.indexOf(matchedproduct)] = true;
           Vibration.vibrate(duration: 200);
-          scrollToIndex(matchedProducts.indexOf(prdtcode));
-          flashItemColor(matchedProducts.indexOf(prdtcode));
+          scrollToIndex(matchedProducts.indexOf(matchedproduct));
+          flashItemColor(matchedProducts.indexOf(matchedproduct));
         }
         if (otherBarcodes != null) {
           for (var otherbarcode in otherBarcodes) {
             if (otherbarcode == barcode.rawValue) {
-              isChecked[matchedProducts.indexOf(prdtcode)] = true;
+              isChecked[matchedProducts.indexOf(matchedproduct)] = true;
               Vibration.vibrate(duration: 200);
-              scrollToIndex(matchedProducts.indexOf(prdtcode));
-              flashItemColor(matchedProducts.indexOf(prdtcode));
+              scrollToIndex(matchedProducts.indexOf(matchedproduct));
+              flashItemColor(matchedProducts.indexOf(matchedproduct));
             }
           }
         }
@@ -103,24 +99,24 @@ class _CameraAppState extends State<CameraApp> {
     }
   }
 
-  void _showOptionsDialog(BuildContext context, int index) {
+  void _showOptionsDialog(BuildContext context, int index) { //미등록 상품 길게 누르면 나오는 창
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('옵션 선택'),
+          title: const Text('옵션 선택'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                title: Text('잘못 인식된 바코드 수정'),
+                title: const Text('잘못 인식된 바코드 수정'),
                 onTap: () {
                   Navigator.of(context).pop(); // Close the current dialog
                   TextEditingController barcodeController = TextEditingController(text: matchedProducts[index].key);
                   showDialog(
                     context: context,
                     builder: (BuildContext context) {
-                      return AlertDialog(
+                      return AlertDialog( //잘못 인식된 바코드 수정창
                         title: const Text('바코드 수정'),
                         content: TextField(
                           controller: barcodeController,
@@ -130,13 +126,13 @@ class _CameraAppState extends State<CameraApp> {
                           keyboardType: TextInputType.number,
                         ),
                         actions: [
-                          TextButton(
+                          TextButton( //잘못 인식된 바코드 수정창 취소버튼
                             onPressed: () {
                               Navigator.of(context).pop();
                             },
                             child: const Text('취소'),
                           ),
-                          TextButton(
+                          TextButton( //잘못 인식된 바코드 수정창 저장버튼
                             onPressed: () async {
                               final newBarcode = barcodeController.text;
                               final newProductName = await DatabaseHelper.instance.getProductNameByBarcode(newBarcode);
@@ -155,7 +151,7 @@ class _CameraAppState extends State<CameraApp> {
                 },
               ),
               ListTile(
-                title: Text('상품 등록'),
+                title: const Text('상품 등록'),
                 onTap: () {
                   Navigator.of(context).pop(); // Close the current dialog
                   setState(() {
@@ -214,14 +210,14 @@ class _CameraAppState extends State<CameraApp> {
 
   @override
   Widget build(BuildContext context) {
-    const double previewAspectRatio = 0.5;
+    const double previewAspectRatio = 0.5; //카메라 화면 비율
     if (!_isCameraInitialized || !controller.value.isInitialized) {
       return Scaffold(
         appBar: AppBar(
-          title: Text('Camera App'),
+          title: const Text('Camera App'),
         ),
-        body: Center(
-          child: Text('No camera available or failed to initialize.'),
+        body: const Center(
+          child: Text('카메라를 불러올 수 없습니다!!'),
         ),
       );
     }
@@ -229,7 +225,7 @@ class _CameraAppState extends State<CameraApp> {
       child: Scaffold(
         body: Column(
           children: [
-            AspectRatio(
+            AspectRatio( //카메라 화면
               aspectRatio: 1 / previewAspectRatio,
               child: ClipRect(
                 child: Transform.scale(
@@ -245,15 +241,11 @@ class _CameraAppState extends State<CameraApp> {
                 controller: scrollController,
                 itemCount: matchedProducts.length,
                 itemBuilder: (BuildContext context, int index) {
-                  if (_itemKeys.length <= index) {
-                    _itemKeys.add(GlobalKey());
-                  }
                   return Card(
-                    key: _itemKeys[index], // 각 아이템에 고유의 키를 설정
                     color: isChecked[index] ? Colors.lightGreen : Colors.white,
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
-                      onLongPress: matchedProducts[index].value == '미입력 상품'
+                      onLongPress: matchedProducts[index].value == '미등록 상품'
                           ? () {
                               _provideHapticFeedback();
                               _showOptionsDialog(context, index);
@@ -267,7 +259,15 @@ class _CameraAppState extends State<CameraApp> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(matchedProducts[index].value, style: const TextStyle(fontSize: 18)),
+                                SizedBox(
+                                  width: 290,
+                                  child: Text(
+                                    matchedProducts[index].value,
+                                    style: const TextStyle(fontSize: 18),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  )
+                                ),
                                 Text(matchedProducts[index].key, style: const TextStyle(color: Colors.grey)),
                               ],
                             ),
@@ -293,14 +293,14 @@ class _CameraAppState extends State<CameraApp> {
                 },
               ),
             ),
-            SizedBox(
+            SizedBox( // 바코드 찍기 버튼
               width: 350,
               height: 70,
               child: FilledButton(
                 onPressed: () async {
                   try {
                     controller.setFlashMode(FlashMode.off);
-                    final image = await takeapicture(controller);
+                    final image = await controller.takePicture();
 
                     if (!mounted) return;
 

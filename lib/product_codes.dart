@@ -13,12 +13,12 @@ class ProductCodes extends StatefulWidget {
 }
 
 class _ProductCodesState extends State<ProductCodes> {
-  final List<File> _photos = [];
+  final List<File> _photos = []; //납품서 사진들
 
-  // 사진찍고 크롭해서 _photos에 저장해주는 함수
+  // 사진찍고 크롭해서 photos에 저장해주는 함수
   Future<void> _pickAndCropImage() async {
-    final ImagePicker _picker = ImagePicker();
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.camera);
+    final ImagePicker picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(source: ImageSource.camera);
 
     if (pickedFile != null) {
       CroppedFile? croppedFile = await ImageCropper().cropImage(
@@ -50,13 +50,12 @@ class _ProductCodesState extends State<ProductCodes> {
     }
   }
 
-  // 사진에서 텍스트 뽑아오기
+  // 납품서 사진에서 텍스트 뽑아오는 함수
   Future<void> extractTextFromImages() async {
     final textRecognizer = TextRecognizer();
 
     for (File photo in _photos) {
-      final inputImage = InputImage.fromFile(photo);
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+      final RecognizedText recognizedText = await textRecognizer.processImage(InputImage.fromFile(photo));
 
       for (TextBlock block in recognizedText.blocks) {
         for (TextLine line in block.lines) {
@@ -70,6 +69,7 @@ class _ProductCodesState extends State<ProductCodes> {
     await textRecognizer.close();
   }
 
+  //인식된 납품서로 상품명 불러오기
   Future<void> matchProducts() async {
     List<MapEntry<String, String>> tempmatchedProducts = matchedProducts;
 
@@ -85,7 +85,7 @@ class _ProductCodesState extends State<ProductCodes> {
           tempmatchedProducts.add(MapEntry(text, productName));
           isChecked.add(false);
         } else {
-          tempmatchedProducts.add(MapEntry(text, '미입력 상품'));
+          tempmatchedProducts.add(MapEntry(text, '미등록 상품'));
           isChecked.add(false);
         }
       }

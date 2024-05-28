@@ -177,25 +177,25 @@ class _ProductListState extends State<ProductList> {
                       context: context,
                       builder: (BuildContext context) {
                         return AlertDialog(
-                          title: Text('새 상품 추가'),
+                          title: const Text('새 상품 추가'),
                           content: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               TextField(
                                 controller: _productNameController,
-                                decoration: InputDecoration(
+                                decoration: const InputDecoration(
                                   labelText: '상품명',
                                 ),
                               ),
                               TextField(
                                 controller: _productCodeController,
-                                decoration: InputDecoration(
+                                decoration: const InputDecoration(
                                   labelText: '상품코드',
                                 ),
                               ),
                               TextField(
                                 controller: _barcodeController,
-                                decoration: InputDecoration(
+                                decoration: const InputDecoration(
                                   labelText: '바코드',
                                 ),
                               ),

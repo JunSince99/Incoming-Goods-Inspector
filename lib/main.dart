@@ -7,8 +7,7 @@ import 'package:csv/csv.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 //이 값들은 앱이 종료될 때까지 유지되어야 하기 때문에 main.dart에서 선언
-List<String> extractedTexts = [];
-//Map<String, String> productMap = {}; 안쓰이는거 같은데
+List<String> extractedTexts = []; //납품서 사진에서 추출된 바코드숫자 리스트
 List<MapEntry<String, String>> matchedProducts = []; //납품서에서 인식된 상품 리스트 (바코드,상품명)
 List<bool> isChecked = []; // 입고 확인 여부
 List<TextEditingController> productCountTextfieldValues = []; //상품 개수 입력란의 값 리스트
@@ -23,35 +22,8 @@ void updateProductCountTextfieldValues() { //productCTV의 길이를 matchedProd
   }
 }
 
-// class ProductCodeProvider with ChangeNotifier { 안쓰이나봐
-//   Map<String, String> get tempproductMap => productMap;
-
-//   Future<void> loadProductData() async {
-//     DatabaseHelper dbHelper = DatabaseHelper.instance;
-//     List<Map<String, dynamic>> products = await dbHelper.getProducts();
-
-//     Map<String, String> tempproductMap = {};
-//     for (var product in products) {
-//       tempproductMap[product['product_code']] = product['product_name'];
-//     }
-
-//     productMap = tempproductMap;
-//     notifyListeners();
-//   }
-// }
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // ProductCodeProvider productCodeProvider = ProductCodeProvider();
-
-  // // 데이터베이스에서 데이터 읽기
-  // await productCodeProvider.loadProductData();
-
-  matchedProducts = [];
-  isChecked = [];
-
-  //await DatabaseHelper.instance.database;
 
   runApp(const MyApp());
 }
@@ -83,7 +55,8 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   Future<void> _exportDatabaseToCSV() async { //데이터베이스 CSV파일로 안드로이드 download 폴더에 저장하는 함수
-    var status = await Permission.storage.status;
+    var status = await Permission.storage.status; //스토리지 권한의 권한 상태
+    
     if (!status.isGranted) {
       status = await Permission.storage.request();
     }
@@ -126,12 +99,14 @@ class _MyHomePageState extends State<MyHomePage> {
       final File barcodeFile = File(barcodePath);
       await barcodeFile.writeAsString(barcodeCsv);
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("CSV 파일이 다운로드 폴더에 저장되었습니다:\nproducts.csv\nbarcodes.csv")),
+        const SnackBar(content: Text("CSV 파일이 다운로드 폴더에 저장되었습니다:\nproducts.csv\nbarcodes.csv")),
       );
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("저장 권한이 필요합니다.")),
+        const SnackBar(content: Text("저장 권한이 필요합니다.")),
       );
     }
   }
