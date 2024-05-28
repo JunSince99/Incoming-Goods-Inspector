@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'database_helper.dart';
+import 'firebase/firebase_database.dart';
 
 class ProductList extends StatefulWidget {
   @override
@@ -8,9 +8,9 @@ class ProductList extends StatefulWidget {
 }
 
 class _ProductListState extends State<ProductList> {
-  late Future<List<Map<String, dynamic>>> _productList;
-  List<Map<String, dynamic>> _allProductList = [];
-  List<Map<String, dynamic>> _filteredProductList = [];
+  late Future<List<Product>> _productList;
+  List<Product> _allProductList = [];
+  List<Product> _filteredProductList = [];
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _productNameController = TextEditingController();
   final TextEditingController _productCodeController = TextEditingController();
@@ -35,24 +35,11 @@ class _ProductListState extends State<ProductList> {
     super.dispose();
   }
 
-  Future<List<Map<String, dynamic>>> _fetchProductList() async {
-    DatabaseHelper dbHelper = DatabaseHelper.instance;
-    List<Map<String, dynamic>> products = await dbHelper.getProducts();
+  Future<List<Product>> _fetchProductList() async { //상품 목록 전체 가져오기
+    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
 
-    List<Map<String, dynamic>> productWithBarcodes = [];
-    for (var product in products) {
-      List<Map<String, dynamic>> barcodes = await dbHelper.queryData(
-        'Barcode',
-        whereClause: 'product_code = ?',
-        whereArgs: [product['product_code']],
-      );
-      productWithBarcodes.add({
-        'product_code': product['product_code'],
-        'product_name': product['product_name'],
-        'barcodes': barcodes.map((b) => b['barcode']).toList(),
-      });
-    }
-
+    List<Product> productWithBarcodes = await firebaseDatabase.fetchProducts();
+    
     setState(() {
       _allProductList = productWithBarcodes;
       _filteredProductList = _allProductList;
@@ -65,9 +52,9 @@ class _ProductListState extends State<ProductList> {
     String query = _searchController.text.toLowerCase();
     setState(() {
       _filteredProductList = _allProductList.where((product) {
-        return product['product_name'].toLowerCase().contains(query) ||
-            product['product_code'].toLowerCase().contains(query) ||
-            (product['barcodes'] as List).any((barcode) => barcode.toLowerCase().contains(query));
+        return product.productName.toLowerCase().contains(query) ||
+            product.productCode.toLowerCase().contains(query) ||
+            (product.barcodes as List).any((barcode) => barcode.toLowerCase().contains(query));
       }).toList();
     });
   }
@@ -87,22 +74,16 @@ class _ProductListState extends State<ProductList> {
   }
 
   Future<void> _addProduct() async {
-    DatabaseHelper dbHelper = DatabaseHelper.instance;
-
+    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
     String productName = _productNameController.text.trim();
     String productCode = _productCodeController.text.trim();
     String barcode = _barcodeController.text.trim();
 
     if (productName.isNotEmpty && productCode.isNotEmpty && barcode.isNotEmpty) {
-      await dbHelper.insert('Product', {
-        'product_code': productCode,
-        'product_name': productName,
-      });
+      
+      await firebaseDatabase.insert('productcode_productname', productCode, productName);
 
-      await dbHelper.insert('Barcode', {
-        'barcode': barcode,
-        'product_code': productCode,
-      });
+      await firebaseDatabase.insert('barcode_productcode', barcode, productCode);
 
       setState(() {
         _productList = _fetchProductList();
@@ -113,14 +94,11 @@ class _ProductListState extends State<ProductList> {
   }
 
   Future<void> _addBarcode(String productCode) async {
-    DatabaseHelper dbHelper = DatabaseHelper.instance;
+    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
     String newBarcode = _newBarcodeController.text.trim();
 
     if (newBarcode.isNotEmpty) {
-      await dbHelper.insert('Barcode', {
-        'barcode': newBarcode,
-        'product_code': productCode,
-      });
+      await firebaseDatabase.insert('Barcode', newBarcode, productCode);
 
       setState(() {
         _productList = _fetchProductList();
@@ -131,10 +109,8 @@ class _ProductListState extends State<ProductList> {
   }
 
   Future<void> _deleteProduct(String productCode) async {
-    DatabaseHelper dbHelper = DatabaseHelper.instance;
-
-    await dbHelper.delete('Product', whereClause: 'product_code = ?', whereArgs: [productCode]);
-    await dbHelper.delete('Barcode', whereClause: 'product_code = ?', whereArgs: [productCode]);
+    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
+    await firebaseDatabase.deleteProduct(productCode);
 
     setState(() {
       _productList = _fetchProductList();
@@ -206,11 +182,11 @@ class _ProductListState extends State<ProductList> {
                               onPressed: () {
                                 Navigator.of(context).pop();
                               },
-                              child: Text('취소'),
+                              child: const Text('취소'),
                             ),
                             TextButton(
                               onPressed: _addProduct,
-                              child: Text('추가'),
+                              child: const Text('추가'),
                             ),
                           ],
                         );
@@ -224,7 +200,7 @@ class _ProductListState extends State<ProductList> {
                 ),
               ],
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: FutureBuilder<List<Product>>(
         future: _productList,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -276,7 +252,7 @@ class _ProductListState extends State<ProductList> {
                                         ),
                                         TextButton(
                                           onPressed: () {
-                                            _addBarcode(product['product_code']);
+                                            _addBarcode(product.productCode);
                                           },
                                           child: const Text('추가'),
                                         ),
@@ -291,7 +267,7 @@ class _ProductListState extends State<ProductList> {
                               title: Text('삭제하기'),
                               onTap: () {
                                 Navigator.pop(context);
-                                _deleteProduct(product['product_code']);
+                                _deleteProduct(product.productCode);
                               },
                             ),
                           ],
@@ -303,8 +279,8 @@ class _ProductListState extends State<ProductList> {
                     children: [
                       Expanded(
                         child: ListTile(
-                          title: Text('${product['product_name']}'),
-                          subtitle: Text('${product['product_code']}'),
+                          title: Text(product.productName),
+                          subtitle: Text(product.productCode),
                         ),
                       ),
                       Padding(
@@ -312,7 +288,7 @@ class _ProductListState extends State<ProductList> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            for (var barcode in product['barcodes']) Text(barcode),
+                            for (var barcode in product.barcodes) Text(barcode),
                           ],
                         ),
                       ),

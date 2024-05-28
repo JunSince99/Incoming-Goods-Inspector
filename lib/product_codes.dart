@@ -4,7 +4,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:barcode_checker/main.dart';
-import 'database_helper.dart';
+import 'firebase/firebase_database.dart';
 import 'camera_page.dart';
 
 class ProductCodes extends StatefulWidget {
@@ -71,6 +71,7 @@ class _ProductCodesState extends State<ProductCodes> {
 
   //인식된 납품서로 상품명 불러오기
   Future<void> matchProducts() async {
+    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
     List<MapEntry<String, String>> tempmatchedProducts = matchedProducts;
 
     for (String text in extractedTexts) {
@@ -80,7 +81,7 @@ class _ProductCodesState extends State<ProductCodes> {
       }
 
       if (!isthere) {
-        String? productName = await DatabaseHelper.instance.getProductNameByBarcode(text);
+        String? productName = await firebaseDatabase.getProductNameByBarcode(text);
         if (productName != null) {
           tempmatchedProducts.add(MapEntry(text, productName));
           isChecked.add(false);

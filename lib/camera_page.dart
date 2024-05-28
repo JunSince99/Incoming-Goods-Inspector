@@ -5,7 +5,7 @@ import 'dart:math';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 import 'package:barcode_checker/main.dart';
 import 'package:vibration/vibration.dart';
-import 'database_helper.dart';
+import 'firebase/firebase_database.dart';
 import 'package:flutter/services.dart';
 
 List<CameraDescription> cameras = [];
@@ -74,9 +74,11 @@ class _CameraAppState extends State<CameraApp> {
   }
 
   Future<void> processBarcodes(List<Barcode> barcodes) async { //인식된 바코드 납품서와 비교
+    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
+
     for (Barcode barcode in barcodes) {
       for (var matchedproduct in matchedProducts) {
-        List<String>? otherBarcodes = await DatabaseHelper.instance.getOtherBarcodesForProduct(matchedproduct.key); //같은 상품의 다른 바코드들 불러오기 
+        List<String>? otherBarcodes = await firebaseDatabase.getBarcodesByProductCode(matchedproduct.key); //같은 상품의 다른 바코드들 불러오기 
 
         if (matchedproduct.key == barcode.rawValue) {
           isChecked[matchedProducts.indexOf(matchedproduct)] = true;
@@ -99,6 +101,7 @@ class _CameraAppState extends State<CameraApp> {
   }
 
   void _showOptionsDialog(BuildContext context, int index) { //미등록 상품 길게 누르면 나오는 창
+  FirebaseDatabase firebaseDatabase = FirebaseDatabase();
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -134,7 +137,7 @@ class _CameraAppState extends State<CameraApp> {
                           TextButton( //잘못 인식된 바코드 수정창 저장버튼
                             onPressed: () async {
                               final newBarcode = barcodeController.text;
-                              final newProductName = await DatabaseHelper.instance.getProductNameByBarcode(newBarcode);
+                              final newProductName = await firebaseDatabase.getProductNameByBarcode(newBarcode);
 
                               setState(() {
                                 matchedProducts[index] = MapEntry(newBarcode, newProductName ?? '미등록 상품');
@@ -185,19 +188,17 @@ class _CameraAppState extends State<CameraApp> {
     );
   }
   
-  Future<void> _addBarcodeToProduct(Map<String, dynamic> product) async {
+  Future<void> _addBarcodeToProduct(Product product) async {
+    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
     if (_selectedIndex == null) return;
 
     String barcode = matchedProducts[_selectedIndex!].key;
-    String productCode = product['product_code'];
+    String productCode = product.productCode;
 
-    await DatabaseHelper.instance.insert('Barcode', {
-      'barcode': barcode,
-      'product_code': productCode,
-    });
+    await firebaseDatabase.insert('Barcode', barcode, productCode);
 
     setState(() {
-      matchedProducts[_selectedIndex!] = MapEntry(barcode, product['product_name']);
+      matchedProducts[_selectedIndex!] = MapEntry(barcode, product.productName);
     });
 
     _selectedIndex = null;
@@ -334,7 +335,7 @@ class _CameraAppState extends State<CameraApp> {
 }
 
 class ProductListDialog extends StatefulWidget {
-  final Function(Map<String, dynamic>) onProductSelected;
+  final Function(Product) onProductSelected;
 
   ProductListDialog({required this.onProductSelected});
 
@@ -343,9 +344,9 @@ class ProductListDialog extends StatefulWidget {
 }
 
 class _ProductListDialogState extends State<ProductListDialog> {
-  late Future<List<Map<String, dynamic>>> _productList;
-  List<Map<String, dynamic>> _allProductList = [];
-  List<Map<String, dynamic>> _filteredProductList = [];
+  late Future<List<Product>> _productList;
+  List<Product> _allProductList = [];
+  List<Product> _filteredProductList = [];
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
 
@@ -362,23 +363,10 @@ class _ProductListDialogState extends State<ProductListDialog> {
     super.dispose();
   }
 
-  Future<List<Map<String, dynamic>>> _fetchProductList() async {
-    DatabaseHelper dbHelper = DatabaseHelper.instance;
-    List<Map<String, dynamic>> products = await dbHelper.getProducts();
+  Future<List<Product>> _fetchProductList() async {
+    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
 
-    List<Map<String, dynamic>> productWithBarcodes = [];
-    for (var product in products) {
-      List<Map<String, dynamic>> barcodes = await dbHelper.queryData(
-        'Barcode',
-        whereClause: 'product_code = ?',
-        whereArgs: [product['product_code']],
-      );
-      productWithBarcodes.add({
-        'product_code': product['product_code'],
-        'product_name': product['product_name'],
-        'barcodes': barcodes.map((b) => b['barcode']).toList(),
-      });
-    }
+    List<Product> productWithBarcodes = await firebaseDatabase.fetchProducts();
 
     setState(() {
       _allProductList = productWithBarcodes;
@@ -392,9 +380,9 @@ class _ProductListDialogState extends State<ProductListDialog> {
     String query = _searchController.text.toLowerCase();
     setState(() {
       _filteredProductList = _allProductList.where((product) {
-        return product['product_name'].toLowerCase().contains(query) ||
-            product['product_code'].toLowerCase().contains(query) ||
-            (product['barcodes'] as List).any((barcode) => barcode.toLowerCase().contains(query));
+        return product.productName.toLowerCase().contains(query) ||
+            product.productCode.toLowerCase().contains(query) ||
+            (product.barcodes as List).any((barcode) => barcode.toLowerCase().contains(query));
       }).toList();
     });
   }
@@ -413,13 +401,13 @@ class _ProductListDialogState extends State<ProductListDialog> {
     });
   }
 
-  void _showConfirmationDialog(Map<String, dynamic> product) {
+  void _showConfirmationDialog(Product product) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('해당 상품에 바코드를 추가하시겠습니까?'),
-          content: Text('선택한 상품: ${product['product_name']}'),
+          content: Text('선택한 상품: ${product.productName}'),
           actions: [
             TextButton(
               onPressed: () {
@@ -472,7 +460,7 @@ class _ProductListDialogState extends State<ProductListDialog> {
                 ),
               ],
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: FutureBuilder<List<Product>>(
         future: _productList,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -497,8 +485,8 @@ class _ProductListDialogState extends State<ProductListDialog> {
                     children: [
                       Expanded(
                         child: ListTile(
-                          title: Text('${product['product_name']}'),
-                          subtitle: Text('${product['product_code']}'),
+                          title: Text(product.productName),
+                          subtitle: Text(product.productCode),
                         ),
                       ),
                       Padding(
@@ -506,7 +494,7 @@ class _ProductListDialogState extends State<ProductListDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            for (var barcode in product['barcodes']) Text(barcode),
+                            for (var barcode in product.barcodes) Text(barcode),
                           ],
                         ),
                       ),

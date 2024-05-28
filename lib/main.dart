@@ -1,10 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:barcode_checker/product_codes.dart';
 import 'package:barcode_checker/product_list.dart';
-import 'package:barcode_checker/database_helper.dart';
-import 'package:csv/csv.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'firebase/firebase_database.dart';
 
 //이 값들은 앱이 종료될 때까지 유지되어야 하기 때문에 main.dart에서 선언
 List<String> extractedTexts = []; //납품서 사진에서 추출된 바코드숫자 리스트
@@ -24,7 +21,8 @@ void updateProductCountTextfieldValues() { //productCTV의 길이를 matchedProd
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await FirebaseDatabase.initializeFirebase();
+  
   runApp(const MyApp());
 }
 
@@ -54,62 +52,6 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  Future<void> _exportDatabaseToCSV() async { //데이터베이스 CSV파일로 안드로이드 download 폴더에 저장하는 함수
-    var status = await Permission.storage.status; //스토리지 권한의 권한 상태
-    
-    if (!status.isGranted) {
-      status = await Permission.storage.request();
-    }
-
-    if (status.isGranted) {
-      DatabaseHelper dbHelper = DatabaseHelper.instance;
-
-      // Products 테이블 데이터를 CSV로 변환
-      List<Map<String, dynamic>> products = await dbHelper.getProducts();
-      List<List<dynamic>> productRows = [];
-      productRows.add(["Product Code", "Product Name"]); // CSV 헤더
-
-      for (var product in products) {
-        List<dynamic> row = [];
-        row.add(product['product_code']);
-        row.add(product['product_name']);
-        productRows.add(row);
-      }
-
-      String productCsv = const ListToCsvConverter().convert(productRows);
-      final directory = Directory('/storage/emulated/0/Download'); // 안드로이드 다운로드 폴더 경로
-      final productPath = "${directory.path}/products.csv";
-      final File productFile = File(productPath);
-      await productFile.writeAsString(productCsv);
-
-      // Barcode 테이블 데이터를 CSV로 변환
-      List<Map<String, dynamic>> barcodes = await dbHelper.queryData('Barcode');
-      List<List<dynamic>> barcodeRows = [];
-      barcodeRows.add(["Barcode", "Product Code"]); // CSV 헤더
-
-      for (var barcode in barcodes) {
-        List<dynamic> row = [];
-        row.add(barcode['barcode']);
-        row.add(barcode['product_code']);
-        barcodeRows.add(row);
-      }
-
-      String barcodeCsv = const ListToCsvConverter().convert(barcodeRows);
-      final barcodePath = "${directory.path}/barcodes.csv";
-      final File barcodeFile = File(barcodePath);
-      await barcodeFile.writeAsString(barcodeCsv);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("CSV 파일이 다운로드 폴더에 저장되었습니다:\nproducts.csv\nbarcodes.csv")),
-      );
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("저장 권한이 필요합니다.")),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) { //UI 부분
@@ -139,13 +81,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 );
               },
               child: const Text('상품 목록 조회'),
-            ),
-            const SizedBox(
-              height: 20,
-            ),
-            FilledButton(
-              onPressed: _exportDatabaseToCSV,
-              child: const Text('CSV 파일로 내보내기'),
             ),
           ],
         ),
