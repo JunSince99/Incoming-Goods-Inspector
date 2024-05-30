@@ -70,7 +70,7 @@ class FirebaseDatabase {
     }
   }
 
-    Future<void> deleteProduct(String productCode) async {
+  Future<void> deleteProduct(String productCode) async {
     try {
       // productcode_productname 문서에서 product code에 해당하는 값 삭제
       DocumentReference productCodeNameDocRef = _firestore.collection('ProductsList').doc('productcode_productname');
@@ -148,5 +148,21 @@ class FirebaseDatabase {
       print('Error fetching barcodes by product code: $e');
       return [];
     }
+  }
+
+  Future<Map<String, dynamic>?> getDatabaseDoc(String docname) async {
+    Map<String, dynamic>? barcodeProductCodeData = {};
+    try {
+      // barcode_productcode 문서에서 모든 데이터를 가져옵니다.
+      DocumentSnapshot<Map<String, dynamic>> barcodeProductCodeDoc = await FirebaseFirestore.instance
+          .collection('ProductsList')
+          .doc(docname)
+          .get();
+      
+      barcodeProductCodeData = barcodeProductCodeDoc.data();
+    } catch (e) {
+      print('Error fetching barcodes by product code: $e');
+    }
+    return barcodeProductCodeData;
   }
 }
