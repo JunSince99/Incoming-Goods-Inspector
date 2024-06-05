@@ -583,29 +583,53 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                       final image = await controller.takePicture();
 
                       if (!mounted) return;
-                      ImageProperties properties = await FlutterNativeImage.getImageProperties(image.path);
+                      ImageProperties properties =
+                          await FlutterNativeImage.getImageProperties(
+                              image.path);
 
                       if (Platform.isAndroid) {
-                        var cropSize = min(properties.width!, properties.height!);
-                        int offsetX = (properties.width! - (cropSize ~/ 2)) ~/ 2;
+                        var cropSize =
+                            min(properties.width!, properties.height!);
+                        int offsetX =
+                            (properties.width! - (cropSize ~/ 2)) ~/ 2;
                         int offsetY = (properties.height! - cropSize) ~/ 2;
-                        final imageFile = await FlutterNativeImage.cropImage(image.path, offsetX, offsetY, (cropSize ~/ 2).toInt(), cropSize);
+                        final imageFile = await FlutterNativeImage.cropImage(
+                            image.path,
+                            offsetX,
+                            offsetY,
+                            (cropSize ~/ 2).toInt(),
+                            cropSize);
 
                         final inputImage =
-                          InputImage.fromFilePath(imageFile.path);
-                        final barcodeScanner =
-                            BarcodeScanner(formats: [BarcodeFormat.all]);
+                            InputImage.fromFilePath(imageFile.path);
+                        final barcodeScanner = BarcodeScanner(formats: [
+                          BarcodeFormat.code128,
+                          BarcodeFormat.code39,
+                          BarcodeFormat.code93,
+                          BarcodeFormat.codabar,
+                          BarcodeFormat.dataMatrix,
+                          BarcodeFormat.ean13,
+                          BarcodeFormat.ean8,
+                          BarcodeFormat.itf,
+                          BarcodeFormat.upca,
+                          BarcodeFormat.upce,
+                          BarcodeFormat.pdf417,
+                          BarcodeFormat.aztec,
+                        ]);
                         final List<Barcode> barcodes =
                             await barcodeScanner.processImage(inputImage);
                         if (barcodes.isNotEmpty) {
                           await processBarcodes(barcodes);
                         } else {
-                          Fluttertoast.showToast(msg: "바코드가 인식되지 않았습니다",gravity: ToastGravity.TOP);
+                          Fluttertoast.showToast(
+                              msg: "바코드가 인식되지 않았습니다",
+                              gravity: ToastGravity.TOP);
                         }
                       }
                       if (Platform.isIOS) {
                         final targetHeight = properties.height! ~/ 3;
-                        final topOffset = (properties.height! - targetHeight) ~/ 2;
+                        final topOffset =
+                            (properties.height! - targetHeight) ~/ 2;
                         final imageFile = await FlutterNativeImage.cropImage(
                             image.path,
                             0,
@@ -619,16 +643,30 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                         //           content: Image.file(imageFile),
                         //         ));
                         final inputImage =
-                          InputImage.fromFilePath(imageFile.path);
-                        final barcodeScanner =
-                            BarcodeScanner(formats: [BarcodeFormat.code128,BarcodeFormat.aztec,BarcodeFormat.ean13,BarcodeFormat.ean8,BarcodeFormat.code93]);
+                            InputImage.fromFilePath(imageFile.path);
+                        final barcodeScanner = BarcodeScanner(formats: [
+                          BarcodeFormat.code128,
+                          BarcodeFormat.code39,
+                          BarcodeFormat.code93,
+                          BarcodeFormat.codabar,
+                          BarcodeFormat.dataMatrix,
+                          BarcodeFormat.ean13,
+                          BarcodeFormat.ean8,
+                          BarcodeFormat.itf,
+                          BarcodeFormat.upca,
+                          BarcodeFormat.upce,
+                          BarcodeFormat.pdf417,
+                          BarcodeFormat.aztec,
+                        ]);
                         final List<Barcode> barcodes =
                             await barcodeScanner.processImage(inputImage);
-                        
+
                         if (barcodes.isNotEmpty) {
                           await processBarcodes(barcodes);
                         } else {
-                          Fluttertoast.showToast(msg: "바코드가 인식되지 않았습니다",gravity: ToastGravity.TOP);
+                          Fluttertoast.showToast(
+                              msg: "바코드가 인식되지 않았습니다",
+                              gravity: ToastGravity.TOP);
                         }
                       }
                     } catch (e) {
