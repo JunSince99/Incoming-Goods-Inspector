@@ -1156,9 +1156,6 @@ PODS:
   - gRPC-Core/Interface (1.62.5)
   - gRPC-Core/Privacy (1.62.5)
   - GTMSessionFetcher/Core (3.4.1)
-  - image_cropper (0.0.4):
-    - Flutter
-    - TOCropViewController (~> 2.7.3)
   - image_picker_ios (0.0.1):
     - Flutter
   - leveldb-library (1.22.5)
@@ -1204,7 +1201,6 @@ PODS:
     - Flutter
     - FlutterMacOS
   - SwiftyGif (5.4.5)
-  - TOCropViewController (2.7.4)
   - url_launcher_ios (0.0.1):
     - Flutter
   - vibration (1.7.5):
@@ -1221,7 +1217,6 @@ DEPENDENCIES:
   - google_mlkit_barcode_scanning (from `.symlinks/plugins/google_mlkit_barcode_scanning/ios`)
   - google_mlkit_commons (from `.symlinks/plugins/google_mlkit_commons/ios`)
   - google_mlkit_text_recognition (from `.symlinks/plugins/google_mlkit_text_recognition/ios`)
-  - image_cropper (from `.symlinks/plugins/image_cropper/ios`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
@@ -1262,7 +1257,6 @@ SPEC REPOS:
     - PromisesObjC
     - SDWebImage
     - SwiftyGif
-    - TOCropViewController
 
 EXTERNAL SOURCES:
   camera_avfoundation:
@@ -1285,8 +1279,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/google_mlkit_commons/ios"
   google_mlkit_text_recognition:
     :path: ".symlinks/plugins/google_mlkit_text_recognition/ios"
-  image_cropper:
-    :path: ".symlinks/plugins/image_cropper/ios"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   path_provider_foundation:
@@ -1331,7 +1323,6 @@ SPEC CHECKSUMS:
   "gRPC-C++": e725ef63c4475d7cdb7e2cf16eb0fde84bd9ee51
   gRPC-Core: eee4be35df218649fe66d721a05a7f27a28f069b
   GTMSessionFetcher: 8000756fc1c19d2e5697b90311f7832d2e33f6cd
-  image_cropper: 2c150b3d63f4feaad31054d20381ddac0a460e63
   image_picker_ios: c560581cceedb403a6ff17f2f816d7fea1421fc1
   leveldb-library: e8eadf9008a61f9e1dde3978c086d2b6d9b9dc28
   MLImage: 1824212150da33ef225fbd3dc49f184cf611046c
@@ -1347,7 +1338,6 @@ SPEC CHECKSUMS:
   SDWebImage: dfe95b2466a9823cf9f0c6d01217c06550d7b29a
   sqflite: 673a0e54cc04b7d6dba8d24fb8095b31c3a99eec
   SwiftyGif: 706c60cf65fa2bc5ee0313beece843c8eb8194d4
-  TOCropViewController: 80b8985ad794298fb69d3341de183f33d1853654
   url_launcher_ios: 5334b05cef931de560670eeae103fd3e431ac3fe
   vibration: 7d883d141656a1c1a6d8d238616b2042a51a1241
 
