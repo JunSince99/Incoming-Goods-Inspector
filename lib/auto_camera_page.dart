@@ -26,6 +26,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
   List<String> filteredProducts = [];
   bool _isLoading = false;
   bool _isCameraInitialized = false;
+  bool _isBarcodeProcessing = false;
   Map<String, List<String>> productBarcodeMap = {}; // 로컬에 저장할 바코드 정보
 
   @override
@@ -103,6 +104,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
   }
   
   Future<void> processBarcodes(List<Barcode> barcodes) async { //인식된 바코드 납품서와 비교
+    bool _isBarcodeProcessing = true;
     bool ismatched = false;
     for (Barcode barcode in barcodes) {
       for (var fpc in fetchedProductCodes) {
@@ -116,10 +118,12 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
               Vibration.vibrate(duration: 200);
               scrollToIndex(fetchedProductCodes.indexOf(fpc));
               flashItemColor(fetchedProductCodes.indexOf(fpc));
+              bool _isBarcodeProcessing = false;
               break;
             }
           }
         }
+        bool _isBarcodeProcessing = false;
         if (ismatched) break;
       }
       if(!ismatched){
@@ -361,7 +365,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
         body: Column(
           children: [
             _isCameraInitialized
-            ? AspectRatio( //카메라 화면
+            ? _isBarcodeProcessing ? const Center(child: CircularProgressIndicator()):AspectRatio( //카메라 화면
               aspectRatio: 1 / previewAspectRatio,
               child: ClipRect(
                 child: Transform.scale(
@@ -371,7 +375,8 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                   ),
                 ),
               ),
-            ): const Center(child: CircularProgressIndicator()),
+            )
+            : const Center(child: CircularProgressIndicator()),
             Expanded(
               child: ListView.builder(
                 controller: scrollController,
