@@ -9,7 +9,6 @@ import 'firebase/firebase_database.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'package:path_provider/path_provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'sqlite/sqlite_database.dart';
@@ -553,7 +552,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
         isCheckedMap = {for (var code in fetchedProductCodes) code: false}; 
       });
       DatabaseHelper.instance.insertIsCheckedMap(isCheckedMap);
-      filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList();;
+      filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList();
       fetchAllBarcodes();
     });
   }
