@@ -11,6 +11,10 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'sqlite/sqlite_database.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:logger/logger.dart';
 
 List<CameraDescription> cameras = [];
 
@@ -22,19 +26,20 @@ class AutoCameraPage extends StatefulWidget {
 }
 
 class _AutoCameraPageState extends State<AutoCameraPage> {
-  late CameraController controller;
-  AutoScrollController scrollController = AutoScrollController();
-  final TextEditingController _productSearchController =
+  late CameraController controller; //카메라 컨트롤러
+  AutoScrollController scrollController = AutoScrollController(); //스크롤 컨트롤러
+  final TextEditingController _productSearchController = //상품에 바코드 추가창 검색 컨트롤러
       TextEditingController();
-  List<String> filteredProducts = [];
-  bool _isLoading = false;
-  bool _isCameraInitialized = false;
-  Map<String, List<String>> productBarcodeMap = {}; // 로컬에 저장할 바코드 정보
+  List<Map<String, dynamic>> filteredProducts = <Map<String, dynamic>>[]; //상품에 바코드 추가창 상품 목록
+  bool _isLoading = false; //납품서 불러오는 중인지 확인
+  bool _isCameraInitialized = false; //카메라 초기화 확인
+  bool showBoxOnly = false; //상자만 보기 여부
 
   @override
   void initState() {
     super.initState();
     initializeCamera();
+    _filterProducts();
     _productSearchController.addListener(_filterProducts);
   }
 
@@ -61,13 +66,13 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     final query = _productSearchController.text.toLowerCase();
     setState(() {
       if (query.isEmpty) {
-        filteredProducts = fetchedProductCodes;
+        filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList();
       } else {
-        filteredProducts = fetchedProductCodes.where((code) {
-          final name = fetchedProductNames[fetchedProductCodes.indexOf(code)];
-          return code.toLowerCase().contains(query) ||
-              name.toLowerCase().contains(query);
-        }).toList();
+        filteredProducts = fetchedProductCodes.asMap().entries.where((entry) {
+          final code = entry.value;
+          final name = fetchedProductNames[entry.key].toLowerCase();
+          return code.toLowerCase().contains(query) || name.contains(query);
+        }).map((entry) => {'code': entry.value, 'index': entry.key}).toList();
       }
     });
   }
@@ -79,37 +84,65 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     super.dispose();
   }
 
-  void scrollToIndex(int index) async {
-    await scrollController.scrollToIndex(index,
-        preferPosition: AutoScrollPosition.begin);
+  void scrollToIndex(String productId) async {
+    int index = fetchedProductCodes.indexOf(productId);
+    if (index != -1) {
+      await scrollController.scrollToIndex(index, preferPosition: AutoScrollPosition.begin);
+    }
   }
 
-  void flashItemColor(int index) async {
-    //깜빡이기
-    for (int i = 0; i < 11; i++) {
+
+  void flashItemColor(String productId) async {
+    int index = fetchedProductCodes.indexOf(productId);
+    if (index != -1) {
+      for (int i = 0; i < 11; i++) {
+        setState(() {
+          isCheckedMap[productId] = !isCheckedMap[productId]!;
+        });
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
       setState(() {
-        isChecked[index] = !isChecked[index];
+        isCheckedMap[productId] = true;
       });
-      await Future.delayed(const Duration(milliseconds: 300));
     }
+  }
+
+  Future<void> fetchAllBarcodes() async { //납품서 목록에 있는 바코드 불러오기
+    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
+    List<Future<void>> futures = [];
+
+    for (String pdc in fetchedProductCodes) {
+      futures.add(
+        firebaseDatabase.getBarcodesByProductCode(pdc).then((barcodes) {
+          if (barcodes.isNotEmpty) {
+            productBarcodeMap[pdc] = barcodes;
+            DatabaseHelper.instance.insertProductBarcodes(pdc, barcodes);
+          }
+        })
+      );
+    }
+
+    await Future.wait(futures);
+  }
+
+  Future<void> fetchBarcode(String productcode) async {
+    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
+    List<String> barcodes = await firebaseDatabase.getBarcodesByProductCode(productcode);
+    if (barcodes.isNotEmpty) {
+      productBarcodeMap[productcode] = barcodes;
+      DatabaseHelper.instance.insertProductBarcodes(productcode, barcodes);
+    }
+  }
+
+  void updateIsChecked(String productId, bool value) async {
+    await DatabaseHelper.instance.updateIsCheckedById(productId, value);
     setState(() {
-      isChecked[index] = true;
+      isCheckedMap[productId] = value;
     });
   }
 
-  Future<void> fetchBarcodes() async {
-    FirebaseDatabase firebaseDatabase = FirebaseDatabase();
-    for (String pdc in fetchedProductCodes) {
-      List<String>? barcodes =
-          await firebaseDatabase.getBarcodesByProductCode(pdc);
-      if (barcodes.isNotEmpty) {
-        productBarcodeMap[pdc] = barcodes;
-      }
-    }
-  }
 
-  Future<void> processBarcodes(List<Barcode> barcodes) async {
-    //인식된 바코드 납품서와 비교
+  Future<void> processBarcodes(List<Barcode> barcodes) async { //인식된 바코드 처리
     bool ismatched = false;
     for (Barcode barcode in barcodes) {
       for (var fpc in fetchedProductCodes) {
@@ -119,17 +152,18 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
           for (var otherbarcode in otherBarcodes) {
             if (otherbarcode == barcode.rawValue) {
               ismatched = true;
-              isChecked[fetchedProductCodes.indexOf(fpc)] = true;
+              isCheckedMap[fpc] = true; //isChecked 값 true로 변경
+              await DatabaseHelper.instance.updateIsCheckedById(fpc, true); //isChecked 값 데이터베이스에 저장
               Vibration.vibrate(duration: 200);
-              scrollToIndex(fetchedProductCodes.indexOf(fpc));
-              flashItemColor(fetchedProductCodes.indexOf(fpc));
+              scrollToIndex(fpc);
+              flashItemColor(fpc);
               break;
             }
           }
         }
         if (ismatched) break;
       }
-      if (!ismatched) {
+      if (!ismatched) { // 인식된 바코드가 납품서에 없을 때
         if (!mounted) return;
         await showModalBottomSheet<void>(
           context: context,
@@ -160,14 +194,21 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                             TextStyle(color: Color.fromARGB(255, 104, 99, 99)),
                       ),
                       style: const TextStyle(color: Colors.black),
+                      onChanged: (text) {
+                        setState(() {
+                          _filterProducts();
+                        });
+                      },
                     ),
                     SizedBox(
                       height: 500, // 높이를 지정하여 스크롤 가능하도록 함
                       child: ListView.builder(
                         itemCount: filteredProducts.length,
                         itemBuilder: (BuildContext context, int index) {
-                          int originalIndex = fetchedProductCodes
-                              .indexOf(filteredProducts[index]);
+                          final productMap = filteredProducts[index];
+                          final productId = productMap['code'];
+                          final productIndex = productMap['index'];
+                          
                           return Card(
                             color: Colors.white,
                             clipBehavior: Clip.antiAlias,
@@ -179,7 +220,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                                   context: context,
                                   builder: (context) => AlertDialog(
                                     title: Text(
-                                        '${fetchedProductNames[originalIndex]} 상품에 바코드를 추가합니다'),
+                                        '${fetchedProductNames[productIndex]} 상품에 바코드를 추가합니다'),
                                     actions: [
                                       TextButton(
                                         onPressed: () {
@@ -197,8 +238,8 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                                                           Text('바코드 저장중...')));
                                           await addBarcodeToProduct(
                                               barcode.rawValue.toString(),
-                                              fetchedProductCodes[
-                                                  originalIndex]);
+                                              productId
+                                          );
                                           Navigator.of(context).pop();
                                           Navigator.of(context).pop();
                                           Navigator.of(context).pop();
@@ -222,7 +263,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                                       children: [
                                         SizedBox(
                                           child: Text(
-                                            fetchedProductNames[originalIndex],
+                                            fetchedProductNames[productIndex],
                                             style:
                                                 const TextStyle(fontSize: 18),
                                             overflow: TextOverflow.ellipsis,
@@ -230,9 +271,8 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                                           ),
                                         ),
                                         Text(
-                                          fetchedProductCodes[originalIndex],
-                                          style: const TextStyle(
-                                              color: Colors.grey),
+                                          productId,
+                                          style: const TextStyle(color: Colors.grey),
                                         ),
                                       ],
                                     ),
@@ -256,7 +296,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     }
   }
 
-  void _showErrorDialog(BuildContext context, String message) {
+  void _showErrorDialog(BuildContext context, String message) { //납품서 불러오기 실패시 띄우는 창
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -274,7 +314,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     );
   }
 
-  Future<void> addNewProductInDatabase() async {
+  Future<void> addNewProductInDatabase() async { //데이터베이스에 없는 상품 추가
     Map<String, dynamic>? barcodeProductCodeData =
         await FirebaseDatabase().getDatabaseDoc("productcode_productname");
 
@@ -288,32 +328,63 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     }
   }
 
-  Future<void> addBarcodeToProduct(String newbcd, String pdtcode) async {
+  Future<void> addBarcodeToProduct(String newbcd, String pdtcode) async { //상품에 바코드 추가
     await FirebaseDatabase().insert("barcode_productcode", newbcd, pdtcode);
-    fetchBarcodes();
+    fetchBarcode(pdtcode);
   }
 
-  Future<void> getIncomingProductList() async {
+  Future<void> getIncomingProductList() async { //납품서 불러오기(상품코드, 상품명, 수량)
     setState(() {
       _isLoading = true;
     });
 
-    const url = 'https://selenium-flask-txecraa52a-du.a.run.app/run';
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? username = prefs.getString('username');
+    final String? password = prefs.getString('password');
+    print('username: \'$username\', password: \'$password\'');
+    var logger = Logger();
+
+    const url = 'https://flask-app-txecraa52a-du.a.run.app/run';
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.post(
+        Uri.parse(url),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, String>{
+          'username': username ?? '',
+          'password': password ?? '',
+        }),
+      );
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        String prettyJson = const JsonEncoder.withIndent('  ').convert(data);
+        prettyJson.split('\n').forEach((line) => logger.i(line));
         fetchedProductCodes = (data['item_codes'] ?? []).cast<String>();
         fetchedProductNames = (data['item_names'] ?? []).cast<String>();
-        fetchedProductQuantities =
-            (data['item_quantities'] ?? []).cast<String>();
+        fetchedProductQuantities =(data['item_quantities'] ?? []).cast<String>();
+        List<String> isBoxrawdata = (data['is_box'] ?? []).cast<String>();
+        
+        isBox = isBoxrawdata.map((quantity) {
+          return int.parse(quantity) >= 20 ? '1' : '0';
+        }).toList();
 
-        isChecked = List<bool>.filled(fetchedProductCodes.length, false);
-        filteredProducts = fetchedProductCodes;
+        DatabaseHelper.instance.insertFetchedProductCodes(fetchedProductCodes);
+        DatabaseHelper.instance.insertFetchedProductNames(fetchedProductNames);
+        DatabaseHelper.instance.insertFetchedProductQuantities(fetchedProductQuantities);
+        DatabaseHelper.instance.insertIncomingDate(DateFormat('yyyy-MM-dd').format(DateTime.now()));
+        DatabaseHelper.instance.insertIsBox(isBox);
+        
+        setState(() {
+          isCheckedMap = {for (var code in fetchedProductCodes) code: false}; // isCheckedMap 초기화
+          filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList(); // 초기값 설정
+        }); // filteredProducts는 검색된 상품들임 그래서 처음에 전체 상품으로 초기화함
+        DatabaseHelper.instance.insertIsCheckedMap(isCheckedMap);
 
-        addNewProductInDatabase();
-        await fetchBarcodes();
+        await addNewProductInDatabase();
+        await fetchAllBarcodes();
 
         if (!mounted) return;
       } else {
@@ -330,9 +401,11 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
       fetchedProductQuantities = [];
       _showErrorDialog(context, 'Error: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted){
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -437,9 +510,50 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
         "16",
         "10"
       ];
-      isChecked = List<bool>.filled(fetchedProductCodes.length, false);
-      filteredProducts = fetchedProductCodes;
-      fetchBarcodes();
+      isBox = [
+        "1",
+        "1",
+        "0",
+        "1",
+        "1",
+        "0",
+        "0",
+        "0",
+        "1",
+        "0",
+        "0",
+        "0",
+        "0",
+        "1",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "1",
+        "1",
+        "1",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ];
+      DatabaseHelper.instance.insertFetchedProductCodes(fetchedProductCodes);
+      DatabaseHelper.instance.insertFetchedProductNames(fetchedProductNames);
+      DatabaseHelper.instance.insertFetchedProductQuantities(fetchedProductQuantities);
+      DatabaseHelper.instance.insertIncomingDate(DateFormat('yyyy-MM-dd').format(DateTime.now()));
+      DatabaseHelper.instance.insertIsBox(isBox);
+      setState(() {
+        isCheckedMap = {for (var code in fetchedProductCodes) code: false}; 
+      });
+      DatabaseHelper.instance.insertIsCheckedMap(isCheckedMap);
+      filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList();;
+      fetchAllBarcodes();
     });
   }
 
@@ -464,8 +578,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                             Text("불러오는 중... 잠시만 기다려주세요")
                           ],
                         ),
-                  FilledButton(
-                    // 상품목록조회 페이지 이동 버튼
+                  FilledButton( // 상품목록조회 페이지 이동 버튼
                     onPressed: () {
                       getIncomingProductList();
                     },
@@ -474,8 +587,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                   const SizedBox(
                     height: 100,
                   ),
-                  OutlinedButton(
-                    // 상품목록조회 페이지 이동 버튼
+                  OutlinedButton( // 상품목록조회 페이지 이동 버튼
                     onPressed: () {
                       getSampleProductList();
                     },
@@ -503,18 +615,65 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                       ),
                     )
                   : const Center(child: CircularProgressIndicator()),
+              Row(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: SearchBar(
+                        leading: const Icon(Icons.search),
+                        trailing: [
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _productSearchController.clear();
+                              _filterProducts();
+                              FocusScope.of(context).unfocus();
+                            },
+                          ),
+                        ],
+                        controller: _productSearchController,
+                        hintText: '상품 검색',
+                        onChanged: (value) {
+                          _filterProducts();
+                        },
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        showBoxOnly = !showBoxOnly;
+                        if (showBoxOnly) {
+                          filteredProducts = fetchedProductCodes.asMap().entries.where((entry) {
+                            return isBox[entry.key] != '0'; // '1'인 항목만 필터링
+                          }).map((entry) => {'code': entry.value, 'index': entry.key}).toList();
+                        } else {
+                          filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList();
+                        }
+                      });
+                    },
+                    child: Text(showBoxOnly ? '납품서 보기' : '상자만 보기'),
+                  ),
+                ],
+              ),
               Expanded(
                   child: ListView.builder(
                 controller: scrollController,
-                itemCount: fetchedProductCodes.length,
+                itemCount: filteredProducts.length,
                 itemBuilder: (BuildContext context, int index) {
+                  final productMap = filteredProducts[index];
+                  final productId = productMap['code'];
+                  final productIndex = productMap['index'];
+                  final isChecked = isCheckedMap[productId] ?? false; // null일 경우 false로 처리
+
                   return AutoScrollTag(
                     key: ValueKey(index),
                     controller: scrollController,
                     index: index,
                     child: Card(
                       color:
-                          isChecked[index] ? Colors.lightGreen : Colors.white,
+                          isChecked ? Colors.lightGreen : Colors.white,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(12, 15, 12, 15),
                         child: Row(
@@ -527,12 +686,12 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                                 children: [
                                   SizedBox(
                                       child: Text(
-                                    fetchedProductNames[index],
+                                    fetchedProductNames[productIndex],
                                     style: const TextStyle(fontSize: 18),
                                     overflow: TextOverflow.ellipsis,
                                     maxLines: 1,
                                   )),
-                                  Text(fetchedProductCodes[index],
+                                  Text(productId,
                                       style:
                                           const TextStyle(color: Colors.grey))
                                 ],
@@ -542,27 +701,16 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 Text(
-                                  "${fetchedProductQuantities[index]}개",
+                                  "${fetchedProductQuantities[productIndex]}개",
                                   style: const TextStyle(fontSize: 20),
                                 ),
                                 const SizedBox(width: 10),
-                                isChecked[index]
-                                    ? OutlinedButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            isChecked[index] =
-                                                !isChecked[index];
-                                          });
-                                        },
-                                        child: const Text("취소"))
-                                    : OutlinedButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            isChecked[index] =
-                                                !isChecked[index];
-                                          });
-                                        },
-                                        child: const Text("확인"))
+                                OutlinedButton(
+                                  onPressed: () async {
+                                    updateIsChecked(productId, !isChecked);
+                                  },
+                                  child: Text(isChecked ? "취소" : "확인")
+                                )
                               ],
                             )
                           ],
@@ -579,15 +727,13 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                 child: FilledButton(
                   onPressed: () async {
                     try {
-                      controller.setFlashMode(FlashMode.off);
-                      final image = await controller.takePicture();
+                      controller.setFlashMode(FlashMode.off); // 자동 플래시 끄기
+                      final image = await controller.takePicture(); // 사진 찍기
 
                       if (!mounted) return;
-                      ImageProperties properties =
-                          await FlutterNativeImage.getImageProperties(
-                              image.path);
+                      ImageProperties properties = await FlutterNativeImage.getImageProperties(image.path); 
 
-                      if (Platform.isAndroid) {
+                      if (Platform.isAndroid) { // 안드로이드에서 사진 크롭하기
                         var cropSize =
                             min(properties.width!, properties.height!);
                         int offsetX =
@@ -602,12 +748,11 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
 
                         final inputImage =
                             InputImage.fromFilePath(imageFile.path);
-                        final barcodeScanner = BarcodeScanner(formats: [
+                        final barcodeScanner = BarcodeScanner(formats: [ // 인식되는 바코드 종류
                           BarcodeFormat.code128,
                           BarcodeFormat.code39,
                           BarcodeFormat.code93,
                           BarcodeFormat.codabar,
-                          BarcodeFormat.dataMatrix,
                           BarcodeFormat.ean13,
                           BarcodeFormat.ean8,
                           BarcodeFormat.itf,
@@ -626,7 +771,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                               gravity: ToastGravity.TOP);
                         }
                       }
-                      if (Platform.isIOS) {
+                      if (Platform.isIOS) { // iOS에서 사진 크롭하기
                         final targetHeight = properties.height! ~/ 3;
                         final topOffset =
                             (properties.height! - targetHeight) ~/ 2;
@@ -644,12 +789,11 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                         //         ));
                         final inputImage =
                             InputImage.fromFilePath(imageFile.path);
-                        final barcodeScanner = BarcodeScanner(formats: [
+                        final barcodeScanner = BarcodeScanner(formats: [ //인식되는 바코드 종류
                           BarcodeFormat.code128,
                           BarcodeFormat.code39,
                           BarcodeFormat.code93,
                           BarcodeFormat.codabar,
-                          BarcodeFormat.dataMatrix,
                           BarcodeFormat.ean13,
                           BarcodeFormat.ean8,
                           BarcodeFormat.itf,
