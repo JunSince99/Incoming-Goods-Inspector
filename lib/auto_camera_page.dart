@@ -1,15 +1,16 @@
 import 'package:barcode_checker/main.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:flutter_native_image/flutter_native_image.dart';
+import 'package:image/image.dart' as img;
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:vibration/vibration.dart';
 import 'firebase/firebase_database.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io';
 import 'dart:math';
+import 'package:path_provider/path_provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'sqlite/sqlite_database.dart';
 import 'package:intl/intl.dart';
@@ -730,89 +731,136 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                       controller.setFlashMode(FlashMode.off); // 자동 플래시 끄기
                       final image = await controller.takePicture(); // 사진 찍기
 
-                      if (!mounted) return;
-                      ImageProperties properties = await FlutterNativeImage.getImageProperties(image.path); 
-
-                      if (Platform.isAndroid) { // 안드로이드에서 사진 크롭하기
-                        var cropSize =
-                            min(properties.width!, properties.height!);
-                        int offsetX =
-                            (properties.width! - (cropSize ~/ 2)) ~/ 2;
-                        int offsetY = (properties.height! - cropSize) ~/ 2;
-                        final imageFile = await FlutterNativeImage.cropImage(
-                            image.path,
-                            offsetX,
-                            offsetY,
-                            (cropSize ~/ 2).toInt(),
-                            cropSize);
-
-                        final inputImage =
-                            InputImage.fromFilePath(imageFile.path);
-                        final barcodeScanner = BarcodeScanner(formats: [ // 인식되는 바코드 종류
-                          BarcodeFormat.code128,
-                          BarcodeFormat.code39,
-                          BarcodeFormat.code93,
-                          BarcodeFormat.codabar,
-                          BarcodeFormat.ean13,
-                          BarcodeFormat.ean8,
-                          BarcodeFormat.itf,
-                          BarcodeFormat.upca,
-                          BarcodeFormat.upce,
-                          BarcodeFormat.pdf417,
-                          BarcodeFormat.aztec,
-                        ]);
-                        final List<Barcode> barcodes =
-                            await barcodeScanner.processImage(inputImage);
-                        if (barcodes.isNotEmpty) {
-                          await processBarcodes(barcodes);
-                        } else {
-                          Fluttertoast.showToast(
-                              msg: "바코드가 인식되지 않았습니다",
-                              gravity: ToastGravity.TOP);
-                        }
+                      img.Image? imageproperties = img.decodeImage(await image.readAsBytes());
+                      if(imageproperties == null) {
+                        throw Exception("이미지를 불러올 수 없습니다.");
                       }
-                      if (Platform.isIOS) { // iOS에서 사진 크롭하기
-                        final targetHeight = properties.height! ~/ 3;
-                        final topOffset =
-                            (properties.height! - targetHeight) ~/ 2;
-                        final imageFile = await FlutterNativeImage.cropImage(
-                            image.path,
-                            0,
-                            topOffset,
-                            properties.width!,
-                            targetHeight);
-                        // showDialog(
-                        //     context: context,
-                        //     builder: (context) => AlertDialog(
-                        //           title: Text('체크'),
-                        //           content: Image.file(imageFile),
-                        //         ));
-                        final inputImage =
-                            InputImage.fromFilePath(imageFile.path);
-                        final barcodeScanner = BarcodeScanner(formats: [ //인식되는 바코드 종류
-                          BarcodeFormat.code128,
-                          BarcodeFormat.code39,
-                          BarcodeFormat.code93,
-                          BarcodeFormat.codabar,
-                          BarcodeFormat.ean13,
-                          BarcodeFormat.ean8,
-                          BarcodeFormat.itf,
-                          BarcodeFormat.upca,
-                          BarcodeFormat.upce,
-                          BarcodeFormat.pdf417,
-                          BarcodeFormat.aztec,
-                        ]);
-                        final List<Barcode> barcodes =
-                            await barcodeScanner.processImage(inputImage);
 
-                        if (barcodes.isNotEmpty) {
-                          await processBarcodes(barcodes);
-                        } else {
-                          Fluttertoast.showToast(
-                              msg: "바코드가 인식되지 않았습니다",
-                              gravity: ToastGravity.TOP);
-                        }
+                      if (imageproperties.width > imageproperties.height) {
+                        imageproperties = img.copyRotate(imageproperties,angle: 90); // 90도 회전
                       }
+
+                      int offsetY = (imageproperties.height - (imageproperties.width ~/ 2)) ~/ 2;
+                      final croppedimg = img.copyCrop(
+                        imageproperties,
+                        x: 0,
+                        y: offsetY,
+                        width: imageproperties.width,
+                        height: (imageproperties.width ~/ 2)
+                      );
+
+                      final directory = await getTemporaryDirectory(); // 임시 디렉터리 가져오기
+                      final filePath = '${directory.path}/cropped_image.png'; // 파일 경로 설정
+                      final file = File(filePath);
+
+                      // PNG로 인코딩 후 파일로 저장
+                      await file.writeAsBytes(img.encodePng(croppedimg));
+
+
+                      final inputImage =
+                          InputImage.fromFilePath(filePath);
+                      final barcodeScanner = BarcodeScanner(formats: [
+                        BarcodeFormat.code128,
+                        BarcodeFormat.code39,
+                        BarcodeFormat.code93,
+                        BarcodeFormat.codabar,
+                        BarcodeFormat.dataMatrix,
+                        BarcodeFormat.ean13,
+                        BarcodeFormat.ean8,
+                        BarcodeFormat.itf,
+                        BarcodeFormat.upca,
+                        BarcodeFormat.upce,
+                        BarcodeFormat.pdf417,
+                        BarcodeFormat.aztec,
+                      ]);
+                      final List<Barcode> barcodes =
+                          await barcodeScanner.processImage(inputImage);
+                      if (barcodes.isNotEmpty) {
+                        await processBarcodes(barcodes);
+                      } else {
+                        Fluttertoast.showToast(
+                            msg: "바코드가 인식되지 않았습니다",
+                            gravity: ToastGravity.TOP);
+                      }
+                      // if (Platform.isAndroid) { // 안드로이드에서 사진 크롭하기
+                      //   var cropSize =
+                      //       min(properties.width!, properties.height!);
+                      //   int offsetX = (properties.width! - (cropSize ~/ 2)) ~/ 2;
+                      //   int offsetY = (properties.height! - cropSize) ~/ 2;
+                      //   final imageFile = await FlutterNativeImage.cropImage(
+                      //       image.path,
+                      //       offsetX,
+                      //       offsetY,
+                      //       (cropSize ~/ 2).toInt(),
+                      //       cropSize);
+
+                      //   final inputImage =
+                      //       InputImage.fromFilePath(imageFile.path);
+                      //   final barcodeScanner = BarcodeScanner(formats: [ // 인식되는 바코드 종류
+                      //     BarcodeFormat.code128,
+                      //     BarcodeFormat.code39,
+                      //     BarcodeFormat.code93,
+                      //     BarcodeFormat.codabar,
+                      //     BarcodeFormat.ean13,
+                      //     BarcodeFormat.ean8,
+                      //     BarcodeFormat.itf,
+                      //     BarcodeFormat.upca,
+                      //     BarcodeFormat.upce,
+                      //     BarcodeFormat.pdf417,
+                      //     BarcodeFormat.aztec,
+                      //   ]);
+                      //   final List<Barcode> barcodes =
+                      //       await barcodeScanner.processImage(inputImage);
+                      //   if (barcodes.isNotEmpty) {
+                      //     await processBarcodes(barcodes);
+                      //   } else {
+                      //     Fluttertoast.showToast(
+                      //         msg: "바코드가 인식되지 않았습니다",
+                      //         gravity: ToastGravity.TOP);
+                      //   }
+                      // }
+                      // if (Platform.isIOS) { // iOS에서 사진 크롭하기
+                      //   final targetHeight = properties.height! ~/ 3;
+                      //   final topOffset =
+                      //       (properties.height! - targetHeight) ~/ 2;
+                      //   final imageFile = await FlutterNativeImage.cropImage(
+                      //       image.path,
+                      //       0,
+                      //       topOffset,
+                      //       properties.width!,
+                      //       targetHeight);
+                      //   // showDialog(
+                      //   //     context: context,
+                      //   //     builder: (context) => AlertDialog(
+                      //   //           title: Text('체크'),
+                      //   //           content: Image.file(imageFile),
+                      //   //         ));
+                      //   final inputImage =
+                      //       InputImage.fromFilePath(imageFile.path);
+                      //   final barcodeScanner = BarcodeScanner(formats: [ //인식되는 바코드 종류
+                      //     BarcodeFormat.code128,
+                      //     BarcodeFormat.code39,
+                      //     BarcodeFormat.code93,
+                      //     BarcodeFormat.codabar,
+                      //     BarcodeFormat.ean13,
+                      //     BarcodeFormat.ean8,
+                      //     BarcodeFormat.itf,
+                      //     BarcodeFormat.upca,
+                      //     BarcodeFormat.upce,
+                      //     BarcodeFormat.pdf417,
+                      //     BarcodeFormat.aztec,
+                      //   ]);
+                      //   final List<Barcode> barcodes =
+                      //       await barcodeScanner.processImage(inputImage);
+
+                      //   if (barcodes.isNotEmpty) {
+                      //     await processBarcodes(barcodes);
+                      //   } else {
+                      //     Fluttertoast.showToast(
+                      //         msg: "바코드가 인식되지 않았습니다",
+                      //         gravity: ToastGravity.TOP);
+                      //   }
+                      // }
                     } catch (e) {
                       print(e);
                     }
