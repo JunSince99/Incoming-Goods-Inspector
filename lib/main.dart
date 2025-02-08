@@ -42,7 +42,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: isLoggedIn ? const MyHomePage(title: '입고 물품 검수') : LoginPage(),
+      home: isLoggedIn ? const MyHomePage(title: '입고 물품 검수') : const LoginPage(),
     );
   }
 }
@@ -70,7 +70,7 @@ class _MyHomePageState extends State<MyHomePage> {
               await prefs.remove('password');
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => LoginPage()),
+                MaterialPageRoute(builder: (context) => const LoginPage()),
               );
             },
             child: const Text('로그아웃'),
