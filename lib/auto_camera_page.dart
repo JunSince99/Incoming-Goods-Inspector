@@ -36,19 +36,18 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
   bool showBoxOnly = false; //상자만 보기 여부
 
   @override
-  void initState() {
+  void initState() { // 초기화
     super.initState();
     initializeCamera();
     _filterProducts();
     _productSearchController.addListener(_filterProducts);
   }
 
-  Future<void> initializeCamera() async {
-    //카메라 초기화
+  Future<void> initializeCamera() async { //카메라 초기화
     try {
       cameras = await availableCameras();
       if (cameras.isNotEmpty) {
-        controller = CameraController(cameras[0], ResolutionPreset.veryHigh);
+        controller = CameraController(cameras[0], ResolutionPreset.high);
         await controller.initialize();
         if (!mounted) return;
         setState(() {
@@ -62,7 +61,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     }
   }
 
-  void _filterProducts() {
+  void _filterProducts() { //검색 필터
     final query = _productSearchController.text.toLowerCase();
     setState(() {
       if (query.isEmpty) {
@@ -84,15 +83,15 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     super.dispose();
   }
 
-  void scrollToIndex(String productId) async {
+  void scrollToIndex(String productId) async { // 해당 productid로 스크롤 이동하는 함수
     int index = fetchedProductCodes.indexOf(productId);
     if (index != -1) {
-      await scrollController.scrollToIndex(index, preferPosition: AutoScrollPosition.begin);
+      await scrollController.scrollToIndex(index, preferPosition: AutoScrollPosition.begin, duration: Duration(milliseconds: 1));
     }
   }
 
 
-  void flashItemColor(String productId) async {
+  void flashItemColor(String productId) async { // productid에 해당하는 상품 반짝이는 함수
     int index = fetchedProductCodes.indexOf(productId);
     if (index != -1) {
       for (int i = 0; i < 11; i++) {
@@ -107,7 +106,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     }
   }
 
-  Future<void> fetchAllBarcodes() async { //납품서 목록에 있는 바코드 불러오기
+  Future<void> fetchAllBarcodes() async { //납품서 목록에 있는 상품의 바코드 서버에서 불러오는 함수
     FirebaseDatabase firebaseDatabase = FirebaseDatabase();
     List<Future<void>> futures = [];
 
@@ -125,7 +124,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     await Future.wait(futures);
   }
 
-  Future<void> fetchBarcode(String productcode) async {
+  Future<void> fetchBarcode(String productcode) async { // 특정 상품의 바코드 값 서버에서 불러오는 함수
     FirebaseDatabase firebaseDatabase = FirebaseDatabase();
     List<String> barcodes = await firebaseDatabase.getBarcodesByProductCode(productcode);
     if (barcodes.isNotEmpty) {
@@ -134,7 +133,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     }
   }
 
-  void updateIsChecked(String productId, bool value) async {
+  void updateIsChecked(String productId, bool value) async { // productId에 해당하는 상품 checked값 변경하는 함수
     await DatabaseHelper.instance.updateIsCheckedById(productId, value);
     setState(() {
       isCheckedMap[productId] = value;
@@ -560,43 +559,45 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
   @override
   Widget build(BuildContext context) {
     const double previewAspectRatio = 0.5;
-    return fetchedProductCodes.isEmpty
-        ? Scaffold(
-            appBar: AppBar(
-              backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-              title: const Text(""),
-            ),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _isLoading == false
-                      ? const Text('20초 정도가 소요됩니다')
-                      : const Column(
-                          children: [
-                            CircularProgressIndicator(),
-                            Text("불러오는 중... 잠시만 기다려주세요")
-                          ],
-                        ),
-                  FilledButton( // 상품목록조회 페이지 이동 버튼
-                    onPressed: () {
-                      getIncomingProductList();
-                    },
-                    child: const Text('납품서 불러오기'),
-                  ),
-                  const SizedBox(
-                    height: 100,
-                  ),
-                  OutlinedButton( // 상품목록조회 페이지 이동 버튼
-                    onPressed: () {
-                      getSampleProductList();
-                    },
-                    child: const Text('납품서 샘플'),
-                  ),
-                ],
+    if (fetchedProductCodes.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          title: const Text(""),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _isLoading == false
+                  ? const Text('20초 정도가 소요됩니다')
+                  : const Column(
+                      children: [
+                        CircularProgressIndicator(),
+                        Text("불러오는 중... 잠시만 기다려주세요")
+                      ],
+                    ),
+              FilledButton( // 상품목록조회 페이지 이동 버튼
+                onPressed: () {
+                  getIncomingProductList();
+                },
+                child: const Text('납품서 불러오기'),
               ),
-            ))
-        : SafeArea(
+              const SizedBox(
+                height: 100,
+              ),
+              OutlinedButton( // 상품목록조회 페이지 이동 버튼
+                onPressed: () {
+                  getSampleProductList();
+                },
+                child: const Text('납품서 샘플'),
+              ),
+            ],
+          ),
+        )
+      );
+    } else {
+      return SafeArea(
             child: Scaffold(
                 body: Column(
             children: [
@@ -615,7 +616,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                       ),
                     )
                   : const Center(child: CircularProgressIndicator()),
-              Row(
+              Row( // 검색창 + 상자 보기
                 children: [
                   Expanded(
                     child: Padding(
@@ -657,7 +658,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                   ),
                 ],
               ),
-              Expanded(
+              Expanded( // 상품 목록
                   child: ListView.builder(
                 controller: scrollController,
                 itemCount: filteredProducts.length,
@@ -720,8 +721,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                   );
                 },
               )),
-              SizedBox(
-                // 바코드 찍기 버튼
+              SizedBox( // 바코드 찍기 버튼
                 width: 350,
                 height: 70,
                 child: FilledButton(
@@ -763,14 +763,14 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                         BarcodeFormat.code39,
                         BarcodeFormat.code93,
                         BarcodeFormat.codabar,
-                        BarcodeFormat.dataMatrix,
+                        //BarcodeFormat.dataMatrix,
                         BarcodeFormat.ean13,
                         BarcodeFormat.ean8,
                         BarcodeFormat.itf,
                         BarcodeFormat.upca,
                         BarcodeFormat.upce,
-                        BarcodeFormat.pdf417,
-                        BarcodeFormat.aztec,
+                        //BarcodeFormat.pdf417,
+                        //BarcodeFormat.aztec,
                       ]);
                       final List<Barcode> barcodes =
                           await barcodeScanner.processImage(inputImage);
@@ -872,7 +872,10 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
               ),
               const SizedBox(height: 4)
             ],
-          )));
+          )
+        )
+      );
+    }
   }
 }
 
