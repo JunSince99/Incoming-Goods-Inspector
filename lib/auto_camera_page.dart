@@ -34,6 +34,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
   bool _isLoading = false; //납품서 불러오는 중인지 확인
   bool _isCameraInitialized = false; //카메라 초기화 확인
   bool showBoxOnly = false; //상자만 보기 여부
+  Set<int> selected = {0};
 
   @override
   void initState() { // 초기화
@@ -299,8 +300,8 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('불러오기 실패!!\n다시 시도해주세요'),
-        content: Text(message),
+        title: Text(message),
+        content: Text("다시 시도해주세요"),
         actions: [
           TextButton(
             onPressed: () {
@@ -343,7 +344,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     print('username: \'$username\', password: \'$password\'');
     var logger = Logger();
 
-    const url = 'https://flask-app-txecraa52a-du.a.run.app/run';
+    const url = 'https://febfour-680685794316.asia-northeast3.run.app/run';
 
     try {
       final response = await http.post(
@@ -359,33 +360,38 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        String prettyJson = const JsonEncoder.withIndent('  ').convert(data);
-        prettyJson.split('\n').forEach((line) => logger.i(line));
-        fetchedProductCodes = (data['item_codes'] ?? []).cast<String>();
-        fetchedProductNames = (data['item_names'] ?? []).cast<String>();
-        fetchedProductQuantities =(data['item_quantities'] ?? []).cast<String>();
-        List<String> isBoxrawdata = (data['is_box'] ?? []).cast<String>();
-        
-        isBox = isBoxrawdata.map((quantity) {
-          return int.parse(quantity) >= 20 ? '1' : '0';
-        }).toList();
 
-        DatabaseHelper.instance.insertFetchedProductCodes(fetchedProductCodes);
-        DatabaseHelper.instance.insertFetchedProductNames(fetchedProductNames);
-        DatabaseHelper.instance.insertFetchedProductQuantities(fetchedProductQuantities);
-        DatabaseHelper.instance.insertIncomingDate(DateFormat('yyyy-MM-dd').format(DateTime.now()));
-        DatabaseHelper.instance.insertIsBox(isBox);
-        
-        setState(() {
-          isCheckedMap = {for (var code in fetchedProductCodes) code: false}; // isCheckedMap 초기화
-          filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList(); // 초기값 설정
-        }); // filteredProducts는 검색된 상품들임 그래서 처음에 전체 상품으로 초기화함
-        DatabaseHelper.instance.insertIsCheckedMap(isCheckedMap);
+        if (data.containsKey("error")) {
+          _showErrorDialog(context, "ID 또는 비밀번호가 틀렸습니다.");
+        } else {
+          String prettyJson = const JsonEncoder.withIndent('  ').convert(data);
+          prettyJson.split('\n').forEach((line) => logger.i(line));
+          fetchedProductCodes = (data['item_codes'] ?? []).cast<String>();
+          fetchedProductNames = (data['item_names'] ?? []).cast<String>();
+          fetchedProductQuantities =(data['item_quantities'] ?? []).cast<String>();
+          List<String> isBoxrawdata = (data['is_box'] ?? []).cast<String>();
+          
+          isBox = isBoxrawdata.map((quantity) {
+            return int.parse(quantity) >= 20 ? '1' : '0';
+          }).toList();
 
-        await addNewProductInDatabase();
-        await fetchAllBarcodes();
+          DatabaseHelper.instance.insertFetchedProductCodes(fetchedProductCodes);
+          DatabaseHelper.instance.insertFetchedProductNames(fetchedProductNames);
+          DatabaseHelper.instance.insertFetchedProductQuantities(fetchedProductQuantities);
+          DatabaseHelper.instance.insertIncomingDate(DateFormat('yyyy-MM-dd').format(DateTime.now()));
+          DatabaseHelper.instance.insertIsBox(isBox);
+          
+          setState(() {
+            isCheckedMap = {for (var code in fetchedProductCodes) code: false}; // isCheckedMap 초기화
+            filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList(); // 초기값 설정
+          }); // filteredProducts는 검색된 상품들임 그래서 처음에 전체 상품으로 초기화함
+          DatabaseHelper.instance.insertIsCheckedMap(isCheckedMap);
 
-        if (!mounted) return;
+          await addNewProductInDatabase();
+          await fetchAllBarcodes();
+
+          if (!mounted) return;
+        }
       } else {
         if (!mounted) return;
         fetchedProductCodes = [];
@@ -616,45 +622,61 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                       ),
                     )
                   : const Center(child: CircularProgressIndicator()),
-              Row( // 검색창 + 상자 보기
+              Column( // 검색창 + 상자 보기
                 children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: SearchBar(
-                        leading: const Icon(Icons.search),
-                        trailing: [
-                          IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _productSearchController.clear();
-                              _filterProducts();
-                              FocusScope.of(context).unfocus();
-                            },
-                          ),
-                        ],
-                        controller: _productSearchController,
-                        hintText: '상품 검색',
-                        onChanged: (value) {
-                          _filterProducts();
-                        },
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: SearchBar(
+                      leading: const Icon(Icons.search),
+                      trailing: [
+                        IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _productSearchController.clear();
+                            _filterProducts();
+                            FocusScope.of(context).unfocus();
+                          },
+                        ),
+                      ],
+                      controller: _productSearchController,
+                      hintText: '상품 검색',
+                      onChanged: (value) {
+                        _filterProducts();
+                      },
                     ),
                   ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        showBoxOnly = !showBoxOnly;
-                        if (showBoxOnly) {
-                          filteredProducts = fetchedProductCodes.asMap().entries.where((entry) {
-                            return isBox[entry.key] != '0'; // '1'인 항목만 필터링
-                          }).map((entry) => {'code': entry.value, 'index': entry.key}).toList();
-                        } else {
-                          filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList();
-                        }
-                      });
-                    },
-                    child: Text(showBoxOnly ? '납품서 보기' : '상자만 보기'),
+                  SizedBox(
+                    width: 370,
+                    height: 50,
+                    child: SegmentedButton(
+                      multiSelectionEnabled: false,
+                      showSelectedIcon: false,
+                      segments: [
+                        ButtonSegment(value: 0, label: Text('전체 상품')),
+                        ButtonSegment(value: 1, label: Text('상자만')),
+                        ButtonSegment(value: 2, label: Text('남은 상품'))
+                      ],
+                      selected: selected,
+                      onSelectionChanged: (Set<int> newSelection) {
+                        setState(() {
+                          selected = newSelection;
+
+                          if (selected.contains(0)) {
+                            filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList();
+                          } else if (selected.contains(1)) {
+                            filteredProducts = fetchedProductCodes.asMap().entries.where((entry) {
+                              return isBox[entry.key] != '0'; // '1'인 항목만 필터링
+                            }).map((entry) => {'code': entry.value, 'index': entry.key}).toList();
+                          } else if (selected.contains(2)) {
+                            filteredProducts = [
+                              for (int i = 0; i < fetchedProductCodes.length; i++)
+                                if (isCheckedMap[fetchedProductCodes[i]] == false)
+                                  {'code': fetchedProductCodes[i], 'index': i},
+                            ];
+                          }
+                        });
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -680,26 +702,26 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            SizedBox(
-                              width: 220,
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  SizedBox(
-                                      child: Text(
+                                  Text(
                                     fetchedProductNames[productIndex],
                                     style: const TextStyle(fontSize: 18),
                                     overflow: TextOverflow.ellipsis,
                                     maxLines: 1,
-                                  )),
-                                  Text(productId,
-                                      style:
-                                          const TextStyle(color: Colors.grey))
+                                  ),
+                                  Text(
+                                    productId,
+                                    style: const TextStyle(color: Colors.grey),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ],
                               ),
                             ),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
                                   "${fetchedProductQuantities[productIndex]}개",
@@ -726,143 +748,139 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                 height: 70,
                 child: FilledButton(
                   onPressed: () async {
-                    try {
-                      controller.setFlashMode(FlashMode.off); // 자동 플래시 끄기
-                      final image = await controller.takePicture(); // 사진 찍기
+                    controller.setFlashMode(FlashMode.off); // 자동 플래시 끄기
+                    final image = await controller.takePicture(); // 사진 찍기
 
-                      img.Image? imageproperties = img.decodeImage(await image.readAsBytes());
-                      if(imageproperties == null) {
-                        throw Exception("이미지를 불러올 수 없습니다.");
-                      }
-
-                      if (imageproperties.width > imageproperties.height) {
-                        imageproperties = img.copyRotate(imageproperties,angle: 90); // 90도 회전
-                      }
-
-                      int offsetY = (imageproperties.height - (imageproperties.width ~/ 2)) ~/ 2;
-                      final croppedimg = img.copyCrop(
-                        imageproperties,
-                        x: 0,
-                        y: offsetY,
-                        width: imageproperties.width,
-                        height: (imageproperties.width ~/ 2)
-                      );
-
-                      final directory = await getTemporaryDirectory(); // 임시 디렉터리 가져오기
-                      final filePath = '${directory.path}/cropped_image.png'; // 파일 경로 설정
-                      final file = File(filePath);
-
-                      // PNG로 인코딩 후 파일로 저장
-                      await file.writeAsBytes(img.encodePng(croppedimg));
-
-
-                      final inputImage =
-                          InputImage.fromFilePath(filePath);
-                      final barcodeScanner = BarcodeScanner(formats: [
-                        BarcodeFormat.code128,
-                        BarcodeFormat.code39,
-                        BarcodeFormat.code93,
-                        BarcodeFormat.codabar,
-                        //BarcodeFormat.dataMatrix,
-                        BarcodeFormat.ean13,
-                        BarcodeFormat.ean8,
-                        BarcodeFormat.itf,
-                        BarcodeFormat.upca,
-                        BarcodeFormat.upce,
-                        //BarcodeFormat.pdf417,
-                        //BarcodeFormat.aztec,
-                      ]);
-                      final List<Barcode> barcodes =
-                          await barcodeScanner.processImage(inputImage);
-                      if (barcodes.isNotEmpty) {
-                        await processBarcodes(barcodes);
-                      } else {
-                        Fluttertoast.showToast(
-                            msg: "바코드가 인식되지 않았습니다",
-                            gravity: ToastGravity.TOP);
-                      }
-                      // if (Platform.isAndroid) { // 안드로이드에서 사진 크롭하기
-                      //   var cropSize =
-                      //       min(properties.width!, properties.height!);
-                      //   int offsetX = (properties.width! - (cropSize ~/ 2)) ~/ 2;
-                      //   int offsetY = (properties.height! - cropSize) ~/ 2;
-                      //   final imageFile = await FlutterNativeImage.cropImage(
-                      //       image.path,
-                      //       offsetX,
-                      //       offsetY,
-                      //       (cropSize ~/ 2).toInt(),
-                      //       cropSize);
-
-                      //   final inputImage =
-                      //       InputImage.fromFilePath(imageFile.path);
-                      //   final barcodeScanner = BarcodeScanner(formats: [ // 인식되는 바코드 종류
-                      //     BarcodeFormat.code128,
-                      //     BarcodeFormat.code39,
-                      //     BarcodeFormat.code93,
-                      //     BarcodeFormat.codabar,
-                      //     BarcodeFormat.ean13,
-                      //     BarcodeFormat.ean8,
-                      //     BarcodeFormat.itf,
-                      //     BarcodeFormat.upca,
-                      //     BarcodeFormat.upce,
-                      //     BarcodeFormat.pdf417,
-                      //     BarcodeFormat.aztec,
-                      //   ]);
-                      //   final List<Barcode> barcodes =
-                      //       await barcodeScanner.processImage(inputImage);
-                      //   if (barcodes.isNotEmpty) {
-                      //     await processBarcodes(barcodes);
-                      //   } else {
-                      //     Fluttertoast.showToast(
-                      //         msg: "바코드가 인식되지 않았습니다",
-                      //         gravity: ToastGravity.TOP);
-                      //   }
-                      // }
-                      // if (Platform.isIOS) { // iOS에서 사진 크롭하기
-                      //   final targetHeight = properties.height! ~/ 3;
-                      //   final topOffset =
-                      //       (properties.height! - targetHeight) ~/ 2;
-                      //   final imageFile = await FlutterNativeImage.cropImage(
-                      //       image.path,
-                      //       0,
-                      //       topOffset,
-                      //       properties.width!,
-                      //       targetHeight);
-                      //   // showDialog(
-                      //   //     context: context,
-                      //   //     builder: (context) => AlertDialog(
-                      //   //           title: Text('체크'),
-                      //   //           content: Image.file(imageFile),
-                      //   //         ));
-                      //   final inputImage =
-                      //       InputImage.fromFilePath(imageFile.path);
-                      //   final barcodeScanner = BarcodeScanner(formats: [ //인식되는 바코드 종류
-                      //     BarcodeFormat.code128,
-                      //     BarcodeFormat.code39,
-                      //     BarcodeFormat.code93,
-                      //     BarcodeFormat.codabar,
-                      //     BarcodeFormat.ean13,
-                      //     BarcodeFormat.ean8,
-                      //     BarcodeFormat.itf,
-                      //     BarcodeFormat.upca,
-                      //     BarcodeFormat.upce,
-                      //     BarcodeFormat.pdf417,
-                      //     BarcodeFormat.aztec,
-                      //   ]);
-                      //   final List<Barcode> barcodes =
-                      //       await barcodeScanner.processImage(inputImage);
-
-                      //   if (barcodes.isNotEmpty) {
-                      //     await processBarcodes(barcodes);
-                      //   } else {
-                      //     Fluttertoast.showToast(
-                      //         msg: "바코드가 인식되지 않았습니다",
-                      //         gravity: ToastGravity.TOP);
-                      //   }
-                      // }
-                    } catch (e) {
-                      print(e);
+                    img.Image? imageproperties = img.decodeImage(await image.readAsBytes());
+                    if(imageproperties == null) {
+                      throw Exception("이미지를 불러올 수 없습니다.");
                     }
+
+                    if (imageproperties.width > imageproperties.height) {
+                      imageproperties = img.copyRotate(imageproperties,angle: 90); // 90도 회전
+                    }
+
+                    int offsetY = (imageproperties.height - (imageproperties.width ~/ 2)) ~/ 2;
+                    final croppedimg = img.copyCrop(
+                      imageproperties,
+                      x: 0,
+                      y: offsetY,
+                      width: imageproperties.width,
+                      height: (imageproperties.width ~/ 2)
+                    );
+
+                    final directory = await getTemporaryDirectory(); // 임시 디렉터리 가져오기
+                    final filePath = '${directory.path}/cropped_image.png'; // 파일 경로 설정
+                    final file = File(filePath);
+
+                    // PNG로 인코딩 후 파일로 저장
+                    await file.writeAsBytes(img.encodePng(croppedimg));
+
+
+                    final inputImage =
+                        InputImage.fromFilePath(filePath);
+                    final barcodeScanner = BarcodeScanner(formats: [
+                      BarcodeFormat.code128,
+                      BarcodeFormat.code39,
+                      BarcodeFormat.code93,
+                      BarcodeFormat.codabar,
+                      //BarcodeFormat.dataMatrix,
+                      BarcodeFormat.ean13,
+                      BarcodeFormat.ean8,
+                      BarcodeFormat.itf,
+                      BarcodeFormat.upca,
+                      BarcodeFormat.upce,
+                      //BarcodeFormat.pdf417,
+                      //BarcodeFormat.aztec,
+                    ]);
+                    final List<Barcode> barcodes =
+                        await barcodeScanner.processImage(inputImage);
+                    if (barcodes.isNotEmpty) {
+                      await processBarcodes(barcodes);
+                    } else {
+                      Fluttertoast.showToast(
+                          msg: "바코드가 인식되지 않았습니다",
+                          gravity: ToastGravity.TOP);
+                    }
+                    // if (Platform.isAndroid) { // 안드로이드에서 사진 크롭하기
+                    //   var cropSize =
+                    //       min(properties.width!, properties.height!);
+                    //   int offsetX = (properties.width! - (cropSize ~/ 2)) ~/ 2;
+                    //   int offsetY = (properties.height! - cropSize) ~/ 2;
+                    //   final imageFile = await FlutterNativeImage.cropImage(
+                    //       image.path,
+                    //       offsetX,
+                    //       offsetY,
+                    //       (cropSize ~/ 2).toInt(),
+                    //       cropSize);
+
+                    //   final inputImage =
+                    //       InputImage.fromFilePath(imageFile.path);
+                    //   final barcodeScanner = BarcodeScanner(formats: [ // 인식되는 바코드 종류
+                    //     BarcodeFormat.code128,
+                    //     BarcodeFormat.code39,
+                    //     BarcodeFormat.code93,
+                    //     BarcodeFormat.codabar,
+                    //     BarcodeFormat.ean13,
+                    //     BarcodeFormat.ean8,
+                    //     BarcodeFormat.itf,
+                    //     BarcodeFormat.upca,
+                    //     BarcodeFormat.upce,
+                    //     BarcodeFormat.pdf417,
+                    //     BarcodeFormat.aztec,
+                    //   ]);
+                    //   final List<Barcode> barcodes =
+                    //       await barcodeScanner.processImage(inputImage);
+                    //   if (barcodes.isNotEmpty) {
+                    //     await processBarcodes(barcodes);
+                    //   } else {
+                    //     Fluttertoast.showToast(
+                    //         msg: "바코드가 인식되지 않았습니다",
+                    //         gravity: ToastGravity.TOP);
+                    //   }
+                    // }
+                    // if (Platform.isIOS) { // iOS에서 사진 크롭하기
+                    //   final targetHeight = properties.height! ~/ 3;
+                    //   final topOffset =
+                    //       (properties.height! - targetHeight) ~/ 2;
+                    //   final imageFile = await FlutterNativeImage.cropImage(
+                    //       image.path,
+                    //       0,
+                    //       topOffset,
+                    //       properties.width!,
+                    //       targetHeight);
+                    //   // showDialog(
+                    //   //     context: context,
+                    //   //     builder: (context) => AlertDialog(
+                    //   //           title: Text('체크'),
+                    //   //           content: Image.file(imageFile),
+                    //   //         ));
+                    //   final inputImage =
+                    //       InputImage.fromFilePath(imageFile.path);
+                    //   final barcodeScanner = BarcodeScanner(formats: [ //인식되는 바코드 종류
+                    //     BarcodeFormat.code128,
+                    //     BarcodeFormat.code39,
+                    //     BarcodeFormat.code93,
+                    //     BarcodeFormat.codabar,
+                    //     BarcodeFormat.ean13,
+                    //     BarcodeFormat.ean8,
+                    //     BarcodeFormat.itf,
+                    //     BarcodeFormat.upca,
+                    //     BarcodeFormat.upce,
+                    //     BarcodeFormat.pdf417,
+                    //     BarcodeFormat.aztec,
+                    //   ]);
+                    //   final List<Barcode> barcodes =
+                    //       await barcodeScanner.processImage(inputImage);
+
+                    //   if (barcodes.isNotEmpty) {
+                    //     await processBarcodes(barcodes);
+                    //   } else {
+                    //     Fluttertoast.showToast(
+                    //         msg: "바코드가 인식되지 않았습니다",
+                    //         gravity: ToastGravity.TOP);
+                    //   }
+                    // }
                   },
                   child: const Text(
                     '바코드 찍기',
@@ -870,7 +888,6 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 4)
             ],
           )
         )

@@ -152,8 +152,10 @@ class _MyHomePageState extends State<MyHomePage> {
                   }
                 },
                 child: const Text(
-                  '입고 물품 체크 시작하기',
+                  '입고 물품 체크 시작',
                   style: TextStyle(fontSize: 20),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
