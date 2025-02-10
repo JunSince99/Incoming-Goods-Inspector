@@ -48,7 +48,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     try {
       cameras = await availableCameras();
       if (cameras.isNotEmpty) {
-        controller = CameraController(cameras[0], ResolutionPreset.high);
+        controller = CameraController(cameras[0], ResolutionPreset.high, enableAudio: false);
         await controller.initialize();
         if (!mounted) return;
         setState(() {
