@@ -35,6 +35,8 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
   bool _isCameraInitialized = false; //카메라 초기화 확인
   bool showBoxOnly = false; //상자만 보기 여부
   Set<int> selected = {0};
+  int allproductlength = fetchedProductNames.length;
+  int leftproductlength = fetchedProductNames.length - isCheckedMap.values.where((value) => value).length;
 
   @override
   void initState() { // 초기화
@@ -103,6 +105,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
       }
       setState(() {
         isCheckedMap[productId] = true;
+        leftproductlength = fetchedProductNames.length - isCheckedMap.values.where((value) => value).length;
       });
     }
   }
@@ -138,6 +141,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     await DatabaseHelper.instance.updateIsCheckedById(productId, value);
     setState(() {
       isCheckedMap[productId] = value;
+      leftproductlength = fetchedProductNames.length - isCheckedMap.values.where((value) => value).length;
     });
   }
 
@@ -153,6 +157,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
             if (otherbarcode == barcode.rawValue) {
               ismatched = true;
               isCheckedMap[fpc] = true; //isChecked 값 true로 변경
+              leftproductlength = fetchedProductNames.length - isCheckedMap.values.where((value) => value).length;
               await DatabaseHelper.instance.updateIsCheckedById(fpc, true); //isChecked 값 데이터베이스에 저장
               Vibration.vibrate(duration: 200);
               scrollToIndex(fpc);
@@ -370,6 +375,8 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
           fetchedProductNames = (data['item_names'] ?? []).cast<String>();
           fetchedProductQuantities =(data['item_quantities'] ?? []).cast<String>();
           List<String> isBoxrawdata = (data['is_box'] ?? []).cast<String>();
+
+          allproductlength = fetchedProductNames.length;
           
           isBox = isBoxrawdata.map((quantity) {
             return int.parse(quantity) >= 20 ? '1' : '0';
@@ -383,6 +390,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
           
           setState(() {
             isCheckedMap = {for (var code in fetchedProductCodes) code: false}; // isCheckedMap 초기화
+            leftproductlength = fetchedProductNames.length - isCheckedMap.values.where((value) => value).length;
             filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList(); // 초기값 설정
           }); // filteredProducts는 검색된 상품들임 그래서 처음에 전체 상품으로 초기화함
           DatabaseHelper.instance.insertIsCheckedMap(isCheckedMap);
@@ -555,6 +563,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
       DatabaseHelper.instance.insertIsBox(isBox);
       setState(() {
         isCheckedMap = {for (var code in fetchedProductCodes) code: false}; 
+        leftproductlength = fetchedProductNames.length - isCheckedMap.values.where((value) => value).length;
       });
       DatabaseHelper.instance.insertIsCheckedMap(isCheckedMap);
       filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList();
@@ -624,8 +633,16 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                   : const Center(child: CircularProgressIndicator()),
               Column( // 검색창 + 상자 보기
                 children: [
+                  Row(
+                    children: [
+                      Text("전체 상품 수 : "),
+                      Text(allproductlength.toString()),
+                      Text(" 남은 상품 수 : "),
+                      Text(leftproductlength.toString())
+                    ],
+                  ),
                   Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: SearchBar(
                       leading: const Icon(Icons.search),
                       trailing: [
@@ -689,7 +706,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
                   final productId = productMap['code'];
                   final productIndex = productMap['index'];
                   final isChecked = isCheckedMap[productId] ?? false; // null일 경우 false로 처리
-
+              
                   return AutoScrollTag(
                     key: ValueKey(index),
                     controller: scrollController,
