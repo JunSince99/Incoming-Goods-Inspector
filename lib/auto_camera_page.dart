@@ -344,7 +344,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     print('username: \'$username\', password: \'$password\'');
     var logger = Logger();
 
-    const url = 'https://febfour-680685794316.asia-northeast3.run.app/run';
+    const url = 'https://flask-app-680685794316.asia-northeast3.run.app/run';
 
     try {
       final response = await http.post(
