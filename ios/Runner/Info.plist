@@ -19,7 +19,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>바코드를 찍는데 필요한 권한입니다</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>바코드를 찍는데 필요한 권한입니다</string>
+	<string>실제로 마이크를 사용하지는 않습니다</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>앱이 사진 라이브러리에 접근할 필요는 없지만, 관련 API 참조로 인해 이 권한 설명이 필요합니다</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

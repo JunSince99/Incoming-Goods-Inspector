@@ -89,7 +89,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
   void scrollToIndex(String productId) async { // 해당 productid로 스크롤 이동하는 함수
     int index = fetchedProductCodes.indexOf(productId);
     if (index != -1) {
-      await scrollController.scrollToIndex(index, preferPosition: AutoScrollPosition.begin, duration: Duration(milliseconds: 1));
+      await scrollController.scrollToIndex(index, preferPosition: AutoScrollPosition.begin, duration: Duration(milliseconds: 100));
     }
   }
 
