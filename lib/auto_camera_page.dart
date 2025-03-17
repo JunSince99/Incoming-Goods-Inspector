@@ -469,7 +469,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
             return int.parse(quantity) >= 20 ? '1' : '0';
           }).toList();
 
-          // 데이터베이스에 저장 (필요에 따라 수정)
+          // 데이터베이스에 저장
           DatabaseHelper.instance.insertFetchedProductCodes(fetchedProductCodes);
           DatabaseHelper.instance.insertFetchedProductNames(fetchedProductNames);
           DatabaseHelper.instance.insertFetchedProductQuantities(fetchedProductQuantities);
