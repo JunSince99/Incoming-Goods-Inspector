@@ -338,18 +338,102 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     fetchBarcode(pdtcode);
   }
 
-  Future<void> getIncomingProductList() async { //납품서 불러오기(상품코드, 상품명, 수량)
+  // Future<void> getIncomingProductList() async { //납품서 불러오기(상품코드, 상품명, 수량)
+  //   setState(() {
+  //     _isLoading = true;
+  //   });
+
+  //   final SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   final String? username = prefs.getString('username');
+  //   final String? password = prefs.getString('password');
+  //   print('username: \'$username\', password: \'$password\'');
+  //   var logger = Logger();
+
+  //   const url = 'https://flask-app-680685794316.asia-northeast3.run.app/run';
+
+  //   try {
+  //     final response = await http.post(
+  //       Uri.parse(url),
+  //       headers: <String, String>{
+  //         'Content-Type': 'application/json; charset=UTF-8',
+  //       },
+  //       body: jsonEncode(<String, String>{
+  //         'username': username ?? '',
+  //         'password': password ?? '',
+  //       }),
+  //     );
+
+  //     if (response.statusCode == 200) {
+  //       final data = json.decode(response.body);
+
+  //       if (data.containsKey("error")) {
+  //         _showErrorDialog(context, "ID 또는 비밀번호가 틀렸습니다.");
+  //       } else {
+  //         String prettyJson = const JsonEncoder.withIndent('  ').convert(data);
+  //         prettyJson.split('\n').forEach((line) => logger.i(line));
+  //         fetchedProductCodes = (data['item_codes'] ?? []).cast<String>();
+  //         fetchedProductNames = (data['item_names'] ?? []).cast<String>();
+  //         fetchedProductQuantities =(data['item_quantities'] ?? []).cast<String>();
+  //         List<String> isBoxrawdata = (data['is_box'] ?? []).cast<String>();
+
+  //         allproductlength = fetchedProductNames.length;
+          
+  //         isBox = isBoxrawdata.map((quantity) {
+  //           return int.parse(quantity) >= 20 ? '1' : '0';
+  //         }).toList();
+
+  //         DatabaseHelper.instance.insertFetchedProductCodes(fetchedProductCodes);
+  //         DatabaseHelper.instance.insertFetchedProductNames(fetchedProductNames);
+  //         DatabaseHelper.instance.insertFetchedProductQuantities(fetchedProductQuantities);
+  //         DatabaseHelper.instance.insertIncomingDate(DateFormat('yyyy-MM-dd').format(DateTime.now()));
+  //         DatabaseHelper.instance.insertIsBox(isBox);
+          
+  //         setState(() {
+  //           isCheckedMap = {for (var code in fetchedProductCodes) code: false}; // isCheckedMap 초기화
+  //           leftproductlength = fetchedProductNames.length - isCheckedMap.values.where((value) => value).length;
+  //           filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList(); // 초기값 설정
+  //         }); // filteredProducts는 검색된 상품들임 그래서 처음에 전체 상품으로 초기화함
+  //         DatabaseHelper.instance.insertIsCheckedMap(isCheckedMap);
+
+  //         await addNewProductInDatabase();
+  //         await fetchAllBarcodes();
+
+  //         if (!mounted) return;
+  //       }
+  //     } else {
+  //       if (!mounted) return;
+  //       fetchedProductCodes = [];
+  //       fetchedProductNames = [];
+  //       fetchedProductQuantities = [];
+  //       _showErrorDialog(context, 'Error: ${response.statusCode}');
+  //     }
+  //   } catch (e) {
+  //     if (!mounted) return;
+  //     fetchedProductCodes = [];
+  //     fetchedProductNames = [];
+  //     fetchedProductQuantities = [];
+  //     _showErrorDialog(context, 'Error: $e');
+  //   } finally {
+  //     if (mounted){
+  //       setState(() {
+  //         _isLoading = false;
+  //       });
+  //     }
+  //   }
+  // }
+
+  Future<void> getIncomingProductList() async {
     setState(() {
       _isLoading = true;
     });
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? username = prefs.getString('username');
+    final String? userId = prefs.getString('username'); // prefs에 저장된 사용자 ID (키 이름이 username이라도 서버에는 userId로 전송)
     final String? password = prefs.getString('password');
-    print('username: \'$username\', password: \'$password\'');
+    print('userId: \'$userId\', password: \'$password\'');
     var logger = Logger();
 
-    const url = 'https://flask-app-680685794316.asia-northeast3.run.app/run';
+    const url = 'https://updatefetch-680685794316.asia-northeast3.run.app/run';
 
     try {
       final response = await http.post(
@@ -357,68 +441,69 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
+        // 서버에 보낼 때는 키를 "userId"로 전달합니다.
         body: jsonEncode(<String, String>{
-          'username': username ?? '',
+          'userId': userId ?? '',
           'password': password ?? '',
         }),
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-
-        if (data.containsKey("error")) {
+        
+        // 서버 응답이 에러를 포함한 Map 형태라면
+        if (data is Map && data.containsKey("error")) {
           _showErrorDialog(context, "ID 또는 비밀번호가 틀렸습니다.");
-        } else {
+        }
+        // 서버 응답이 리스트라면 (상세 데이터 리스트)
+        else if (data is List) {
           String prettyJson = const JsonEncoder.withIndent('  ').convert(data);
           prettyJson.split('\n').forEach((line) => logger.i(line));
-          fetchedProductCodes = (data['item_codes'] ?? []).cast<String>();
-          fetchedProductNames = (data['item_names'] ?? []).cast<String>();
-          fetchedProductQuantities =(data['item_quantities'] ?? []).cast<String>();
-          List<String> isBoxrawdata = (data['is_box'] ?? []).cast<String>();
-
-          allproductlength = fetchedProductNames.length;
           
-          isBox = isBoxrawdata.map((quantity) {
+          fetchedProductCodes = data.map((item) => item['itemcd'] as String).toList();
+          fetchedProductNames = data.map((item) => item['itemnm'] as String).toList();
+          fetchedProductQuantities = data.map((item) => item['receiveqty'].toString()).toList();
+          
+          // 수량을 정수로 변환한 후 20 이상이면 '1', 아니면 '0'을 반환하여 isBox 리스트 생성
+          isBox = fetchedProductQuantities.map((quantity) {
             return int.parse(quantity) >= 20 ? '1' : '0';
           }).toList();
 
+          // 데이터베이스에 저장 (필요에 따라 수정)
           DatabaseHelper.instance.insertFetchedProductCodes(fetchedProductCodes);
           DatabaseHelper.instance.insertFetchedProductNames(fetchedProductNames);
           DatabaseHelper.instance.insertFetchedProductQuantities(fetchedProductQuantities);
           DatabaseHelper.instance.insertIncomingDate(DateFormat('yyyy-MM-dd').format(DateTime.now()));
           DatabaseHelper.instance.insertIsBox(isBox);
           
+          // 화면 업데이트: 전체 제품 리스트로 초기화
           setState(() {
-            isCheckedMap = {for (var code in fetchedProductCodes) code: false}; // isCheckedMap 초기화
+            isCheckedMap = {for (var code in fetchedProductCodes) code: false};
             leftproductlength = fetchedProductNames.length - isCheckedMap.values.where((value) => value).length;
-            filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList(); // 초기값 설정
-          }); // filteredProducts는 검색된 상품들임 그래서 처음에 전체 상품으로 초기화함
+            filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList();
+          });
           DatabaseHelper.instance.insertIsCheckedMap(isCheckedMap);
 
           await addNewProductInDatabase();
           await fetchAllBarcodes();
-
-          if (!mounted) return;
+        } else {
+          _showErrorDialog(context, '예상치 못한 응답 형식입니다.');
         }
       } else {
-        if (!mounted) return;
         fetchedProductCodes = [];
         fetchedProductNames = [];
         fetchedProductQuantities = [];
         _showErrorDialog(context, 'Error: ${response.statusCode}');
       }
     } catch (e) {
-      if (!mounted) return;
       fetchedProductCodes = [];
       fetchedProductNames = [];
       fetchedProductQuantities = [];
       _showErrorDialog(context, 'Error: $e');
     } finally {
-      if (mounted){
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
