@@ -433,7 +433,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     print('userId: \'$userId\', password: \'$password\'');
     var logger = Logger();
 
-    const url = 'https://updatefetch-680685794316.asia-northeast3.run.app/run';
+    const url = 'https://updatefetch-680685794316.asia-northeast3.run.app/get_product_list';
 
     try {
       final response = await http.post(
