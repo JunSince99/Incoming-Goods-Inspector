@@ -433,7 +433,7 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
     print('userId: \'$userId\', password: \'$password\'');
     var logger = Logger();
 
-    const url = 'https://updatefetch-680685794316.asia-northeast3.run.app/get_product_list';
+    const url = 'https://updatefetch-680685794316.asia-northeast3.run.app/process';
 
     try {
       final response = await http.post(
@@ -441,29 +441,28 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
-        // 서버에 보낼 때는 키를 "userId"로 전달합니다.
+        // 서버에 보낼 때는 키를 "user_Id"로 전달합니다.
         body: jsonEncode(<String, String>{
-          'userId': userId ?? '',
+          'user_id': userId ?? '',
           'password': password ?? '',
         }),
+
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
-        // 서버 응답이 에러를 포함한 Map 형태라면
+
         if (data is Map && data.containsKey("error")) {
           _showErrorDialog(context, "ID 또는 비밀번호가 틀렸습니다.");
-        }
-        // 서버 응답이 리스트라면 (상세 데이터 리스트)
-        else if (data is List) {
-          String prettyJson = const JsonEncoder.withIndent('  ').convert(data);
+        } else if (data is Map && data.containsKey("details")) {
+          List detailsList = data["details"];
+          String prettyJson = const JsonEncoder.withIndent('  ').convert(detailsList);
           prettyJson.split('\n').forEach((line) => logger.i(line));
-          
-          fetchedProductCodes = data.map((item) => item['itemcd'] as String).toList();
-          fetchedProductNames = data.map((item) => item['itemnm'] as String).toList();
-          fetchedProductQuantities = data.map((item) => item['receiveqty'].toString()).toList();
-          
+
+          fetchedProductCodes = detailsList.map((item) => item['itemcd'].toString()).toList();
+          fetchedProductNames = detailsList.map((item) => item['itemnm'] as String).toList();
+          fetchedProductQuantities = detailsList.map((item) => item['receiveqty'].toString()).toList();
+
           // 수량을 정수로 변환한 후 20 이상이면 '1', 아니면 '0'을 반환하여 isBox 리스트 생성
           isBox = fetchedProductQuantities.map((quantity) {
             return int.parse(quantity) >= 20 ? '1' : '0';
@@ -475,12 +474,13 @@ class _AutoCameraPageState extends State<AutoCameraPage> {
           DatabaseHelper.instance.insertFetchedProductQuantities(fetchedProductQuantities);
           DatabaseHelper.instance.insertIncomingDate(DateFormat('yyyy-MM-dd').format(DateTime.now()));
           DatabaseHelper.instance.insertIsBox(isBox);
-          
+
           // 화면 업데이트: 전체 제품 리스트로 초기화
           setState(() {
             isCheckedMap = {for (var code in fetchedProductCodes) code: false};
             leftproductlength = fetchedProductNames.length - isCheckedMap.values.where((value) => value).length;
-            filteredProducts = fetchedProductCodes.asMap().entries.map((entry) => {'code': entry.value, 'index': entry.key}).toList();
+            filteredProducts = fetchedProductCodes.asMap().entries
+                .map((entry) => {'code': entry.value, 'index': entry.key}).toList();
           });
           DatabaseHelper.instance.insertIsCheckedMap(isCheckedMap);
 
