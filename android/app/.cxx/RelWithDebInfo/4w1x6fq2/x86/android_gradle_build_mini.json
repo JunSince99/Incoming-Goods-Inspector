@@ -1,0 +1,20 @@
+{
+  "buildFiles": [
+    "/Users/jun/flutter/packages/flutter_tools/gradle/src/main/groovy/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/jun/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/jun/Study/Flutter/Convenience store app/Incoming-Goods-Inspector/android/app/.cxx/RelWithDebInfo/4w1x6fq2/x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/jun/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/jun/Study/Flutter/Convenience store app/Incoming-Goods-Inspector/android/app/.cxx/RelWithDebInfo/4w1x6fq2/x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {}
+}

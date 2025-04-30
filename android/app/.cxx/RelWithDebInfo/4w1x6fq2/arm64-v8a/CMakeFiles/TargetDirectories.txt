@@ -1,0 +1,2 @@
+/Users/jun/Study/Flutter/Convenience store app/Incoming-Goods-Inspector/android/app/.cxx/RelWithDebInfo/4w1x6fq2/arm64-v8a/CMakeFiles/edit_cache.dir
+/Users/jun/Study/Flutter/Convenience store app/Incoming-Goods-Inspector/android/app/.cxx/RelWithDebInfo/4w1x6fq2/arm64-v8a/CMakeFiles/rebuild_cache.dir
